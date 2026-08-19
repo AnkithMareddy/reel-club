@@ -1,0 +1,402 @@
+// Movie Club — Prisma schema
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Auth (Auth.js / NextAuth — Prisma adapter shape) + User profile
+// ─────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  username      String?   @unique
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+
+  friendRequestsSent     Friendship[] @relation("FriendRequester")
+  friendRequestsReceived Friendship[] @relation("FriendAddressee")
+
+  clubsCreated   Club[]             @relation("ClubCreator")
+  clubMembers    ClubMembership[]
+  nominations    Nomination[]
+  votes          Vote[]
+  ratings        Rating[]
+  reviews        Review[]
+  reviewLikes    ReviewLike[]
+  reviewComments ReviewComment[]
+  activityItems  ActivityFeedItem[]
+
+  @@index([email])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Social graph
+// ─────────────────────────────────────────────────────────────────────────
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  requester User @relation("FriendRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("FriendAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Clubs
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ScheduleType {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ClubRole {
+  ADMIN
+  MEMBER
+}
+
+model Club {
+  id                   String       @id @default(cuid())
+  name                 String
+  description          String?
+  coverImage           String?
+  inviteCode           String       @unique
+  scheduleType         ScheduleType @default(WEEKLY)
+  scheduleIntervalDays Int          @default(7)
+  winnersPerCycle      Int          @default(1)
+  nominationsPerMember Int          @default(2)
+  createdById          String
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  createdBy     User               @relation("ClubCreator", fields: [createdById], references: [id])
+  memberships   ClubMembership[]
+  cycles        Cycle[]
+  watched       WatchedMovie[]
+  ratings       Rating[]
+  activityItems ActivityFeedItem[]
+
+  @@index([createdById])
+}
+
+model ClubMembership {
+  id       String   @id @default(cuid())
+  userId   String
+  clubId   String
+  role     ClubRole @default(MEMBER)
+  joinedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club Club @relation(fields: [clubId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, clubId])
+  @@index([clubId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Movies (cached from TMDB / OMDb)
+// ─────────────────────────────────────────────────────────────────────────
+
+model Genre {
+  id     String  @id @default(cuid())
+  tmdbId Int     @unique
+  name   String
+  movies Movie[]
+}
+
+model Director {
+  id     String  @id @default(cuid())
+  tmdbId Int     @unique
+  name   String
+  movies Movie[]
+}
+
+model Movie {
+  id           String    @id @default(cuid())
+  tmdbId       Int       @unique
+  imdbId       String?
+  title        String
+  posterPath   String?
+  backdropPath String?
+  synopsis     String?   @db.Text
+  releaseDate  DateTime?
+  runtime      Int?
+  tmdbRating   Float?
+  imdbRating   Float?
+  cast         Json?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  genres    Genre[]
+  directors Director[]
+
+  nominations   Nomination[]
+  watchedMovies WatchedMovie[]
+  ratings       Rating[]
+  reviews       Review[]
+  activityItems ActivityFeedItem[]
+
+  @@index([title])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Cycles: nominate → vote → watch → complete
+// ─────────────────────────────────────────────────────────────────────────
+
+enum CyclePhase {
+  NOMINATING
+  VOTING
+  WATCHING
+  COMPLETED
+}
+
+model Cycle {
+  id               String     @id @default(cuid())
+  clubId           String
+  cycleNumber      Int
+  phase            CyclePhase @default(NOMINATING)
+  winnersPerCycle  Int
+  startsAt         DateTime   @default(now())
+  nominationsEndAt DateTime?
+  votingEndAt      DateTime?
+  watchEndAt       DateTime?
+  endsAt           DateTime?
+  createdAt        DateTime   @default(now())
+
+  club          Club           @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  nominations   Nomination[]
+  votes         Vote[]
+  watchedMovies WatchedMovie[]
+
+  @@unique([clubId, cycleNumber])
+  @@index([clubId, phase])
+}
+
+model Nomination {
+  id            String   @id @default(cuid())
+  cycleId       String
+  movieId       String
+  nominatedById String
+  note          String?
+  createdAt     DateTime @default(now())
+
+  cycle       Cycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  movie       Movie  @relation(fields: [movieId], references: [id])
+  nominatedBy User   @relation(fields: [nominatedById], references: [id], onDelete: Cascade)
+  votes       Vote[]
+
+  @@unique([cycleId, movieId])
+  @@index([cycleId])
+}
+
+// Ranked-choice: each voter assigns a rank (1 = most preferred) to any
+// number of nominations. Tallying uses sequential instant-runoff to fill
+// `winnersPerCycle` seats.
+model Vote {
+  id           String   @id @default(cuid())
+  cycleId      String
+  nominationId String
+  userId       String
+  rank         Int
+  createdAt    DateTime @default(now())
+
+  cycle      Cycle      @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  nomination Nomination @relation(fields: [nominationId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, nominationId])
+  @@index([cycleId, userId])
+}
+
+model WatchedMovie {
+  id        String   @id @default(cuid())
+  clubId    String
+  cycleId   String
+  movieId   String
+  watchedAt DateTime @default(now())
+
+  club    Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  cycle   Cycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  movie   Movie    @relation(fields: [movieId], references: [id])
+  ratings Rating[]
+  reviews Review[]
+
+  @@unique([cycleId, movieId])
+  @@index([clubId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Ratings & reviews
+// ─────────────────────────────────────────────────────────────────────────
+
+model Rating {
+  id             String   @id @default(cuid())
+  userId         String
+  clubId         String
+  movieId        String
+  watchedMovieId String
+  score          Int // 1–10 (rendered as 0.5–5.0 stars)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club         Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  movie        Movie        @relation(fields: [movieId], references: [id])
+  watchedMovie WatchedMovie @relation(fields: [watchedMovieId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, watchedMovieId])
+  @@index([clubId, movieId])
+  @@index([userId])
+}
+
+enum ReviewVisibility {
+  CLUB_AND_FRIENDS // default: the watching club + the author's friends
+  CLUB_ONLY
+}
+
+model Review {
+  id               String           @id @default(cuid())
+  userId           String
+  movieId          String
+  watchedMovieId   String
+  body             String           @db.Text
+  containsSpoilers Boolean          @default(false)
+  visibility       ReviewVisibility @default(CLUB_AND_FRIENDS)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie        Movie           @relation(fields: [movieId], references: [id])
+  watchedMovie WatchedMovie    @relation(fields: [watchedMovieId], references: [id], onDelete: Cascade)
+  comments     ReviewComment[]
+  likes        ReviewLike[]
+
+  @@unique([userId, watchedMovieId])
+  @@index([watchedMovieId])
+}
+
+model ReviewComment {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+model ReviewLike {
+  id        String   @id @default(cuid())
+  reviewId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, userId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Activity feed (persisted log, not computed on the fly)
+// ─────────────────────────────────────────────────────────────────────────
+
+enum ActivityType {
+  JOINED_CLUB
+  NOMINATED_MOVIE
+  RATED_MOVIE
+  REVIEWED_MOVIE
+  FRIEND_ADDED
+  CYCLE_WINNERS_ANNOUNCED
+}
+
+// `metadata` snapshots display-relevant fields (e.g. movie title/poster,
+// score, club name) at write time, so the feed renders without extra joins
+// even if the underlying record later changes.
+model ActivityFeedItem {
+  id        String       @id @default(cuid())
+  userId    String
+  clubId    String? // null for events with no single club (e.g. FRIEND_ADDED)
+  movieId   String?
+  type      ActivityType
+  targetId  String? // id of the Review/Nomination/Rating this event is about
+  metadata  Json?
+  createdAt DateTime     @default(now())
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  club  Club?  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  movie Movie? @relation(fields: [movieId], references: [id], onDelete: SetNull)
+
+  @@index([clubId, createdAt])
+  @@index([userId, createdAt])
+}
