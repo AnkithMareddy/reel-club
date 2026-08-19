@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrCacheMovie } from "@/lib/movies";
+import { getListAccess } from "@/lib/list-access";
+import type { ListVisibility } from "@/lib/list-visibility";
 
 async function requireUser() {
   const session = await auth();
@@ -17,18 +19,13 @@ async function requireUser() {
   return user;
 }
 
-async function requireOwnedList(listId: string, userId: string) {
-  const list = await prisma.movieList.findUnique({ where: { id: listId } });
-  if (!list || list.ownerId !== userId) return null;
-  return list;
-}
-
 export type ListActionResult = { error: string } | { success: true; listId?: string };
 
 export async function createList(input: {
   title: string;
   description?: string;
   isRanked: boolean;
+  visibility?: ListVisibility;
 }): Promise<ListActionResult> {
   const user = await requireUser();
   const title = input.title.trim();
@@ -41,6 +38,7 @@ export async function createList(input: {
       title,
       description: input.description?.trim() || null,
       isRanked: input.isRanked,
+      visibility: input.visibility ?? "PRIVATE",
     },
   });
 
@@ -51,16 +49,27 @@ export async function createList(input: {
 
 export async function updateList(
   listId: string,
-  input: { title: string; description?: string; isRanked: boolean },
+  input: {
+    title: string;
+    description?: string;
+    isRanked: boolean;
+    visibility: ListVisibility;
+  },
 ): Promise<ListActionResult> {
   const user = await requireUser();
-  if (!(await requireOwnedList(listId, user.id))) return { error: "List not found" };
+  const access = await getListAccess(listId, user.id);
+  if (!access.canManage) return { error: "Only the list owner can change its settings" };
   const title = input.title.trim();
   if (!title) return { error: "Give the list a title" };
 
   await prisma.movieList.update({
     where: { id: listId },
-    data: { title, description: input.description?.trim() || null, isRanked: input.isRanked },
+    data: {
+      title,
+      description: input.description?.trim() || null,
+      isRanked: input.isRanked,
+      visibility: input.visibility,
+    },
   });
   revalidatePath(`/lists/${listId}`);
   revalidatePath("/lists");
@@ -69,7 +78,9 @@ export async function updateList(
 
 export async function deleteList(listId: string): Promise<ListActionResult> {
   const user = await requireUser();
-  if (!(await requireOwnedList(listId, user.id))) return { error: "List not found" };
+  const access = await getListAccess(listId, user.id);
+  if (!access.canManage) return { error: "Only the list owner can delete it" };
+
   await prisma.movieList.delete({ where: { id: listId } });
   revalidatePath("/lists");
   if (user.username) revalidatePath(`/profile/${user.username}`);
@@ -78,7 +89,8 @@ export async function deleteList(listId: string): Promise<ListActionResult> {
 
 export async function addMovieToList(listId: string, tmdbId: number): Promise<ListActionResult> {
   const user = await requireUser();
-  if (!(await requireOwnedList(listId, user.id))) return { error: "List not found" };
+  const access = await getListAccess(listId, user.id);
+  if (!access.canEditItems) return { error: "You can't edit this list" };
 
   const movie = await getOrCacheMovie(tmdbId);
   const existing = await prisma.movieListItem.findUnique({
@@ -101,7 +113,8 @@ export async function addMovieToList(listId: string, tmdbId: number): Promise<Li
 
 export async function removeListItem(listId: string, itemId: string): Promise<ListActionResult> {
   const user = await requireUser();
-  if (!(await requireOwnedList(listId, user.id))) return { error: "List not found" };
+  const access = await getListAccess(listId, user.id);
+  if (!access.canEditItems) return { error: "You can't edit this list" };
 
   await prisma.movieListItem.deleteMany({ where: { id: itemId, listId } });
 
@@ -128,7 +141,8 @@ export async function moveListItem(
   direction: "up" | "down",
 ): Promise<ListActionResult> {
   const user = await requireUser();
-  if (!(await requireOwnedList(listId, user.id))) return { error: "List not found" };
+  const access = await getListAccess(listId, user.id);
+  if (!access.canEditItems) return { error: "You can't edit this list" };
 
   const items = await prisma.movieListItem.findMany({
     where: { listId },
@@ -144,6 +158,57 @@ export async function moveListItem(
     prisma.movieListItem.update({ where: { id: items[index].id }, data: { position: swapWith + 1 } }),
     prisma.movieListItem.update({ where: { id: items[swapWith].id }, data: { position: index + 1 } }),
   ]);
+
+  revalidatePath(`/lists/${listId}`);
+  return { success: true };
+}
+
+/** Owner-only: invite an accepted friend to co-edit the list. */
+export async function addListCollaborator(
+  listId: string,
+  collaboratorUserId: string,
+): Promise<ListActionResult> {
+  const user = await requireUser();
+  const access = await getListAccess(listId, user.id);
+  if (!access.canManage) return { error: "Only the list owner can add collaborators" };
+  if (collaboratorUserId === user.id) return { error: "You already own this list" };
+
+  const friendship = await prisma.friendship.findFirst({
+    where: {
+      status: "ACCEPTED",
+      OR: [
+        { requesterId: user.id, addresseeId: collaboratorUserId },
+        { requesterId: collaboratorUserId, addresseeId: user.id },
+      ],
+    },
+    select: { id: true },
+  });
+  if (!friendship) return { error: "You can only add friends as collaborators" };
+
+  await prisma.movieListCollaborator.upsert({
+    where: { listId_userId: { listId, userId: collaboratorUserId } },
+    create: { listId, userId: collaboratorUserId },
+    update: {},
+  });
+
+  revalidatePath(`/lists/${listId}`);
+  return { success: true };
+}
+
+export async function removeListCollaborator(
+  listId: string,
+  collaboratorUserId: string,
+): Promise<ListActionResult> {
+  const user = await requireUser();
+  const access = await getListAccess(listId, user.id);
+  // Owners can remove anyone; a collaborator can remove themselves.
+  if (!access.canManage && collaboratorUserId !== user.id) {
+    return { error: "You can't change this list's collaborators" };
+  }
+
+  await prisma.movieListCollaborator.deleteMany({
+    where: { listId, userId: collaboratorUserId },
+  });
 
   revalidatePath(`/lists/${listId}`);
   return { success: true };

@@ -19,6 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { VisibilitySelect } from "@/components/visibility-select";
+import type { ListVisibility } from "@/lib/list-visibility";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -45,15 +47,19 @@ export function ListEditor({
   listTitle,
   listDescription,
   isRanked,
+  visibility,
   items,
-  editable,
+  canEditItems,
+  canManage,
 }: {
   listId: string;
   listTitle: string;
   listDescription: string;
   isRanked: boolean;
+  visibility: ListVisibility;
   items: ListItemRow[];
-  editable: boolean;
+  canEditItems: boolean;
+  canManage: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -91,22 +97,25 @@ export function ListEditor({
 
   return (
     <div className="space-y-4">
-      {editable && (
+      {canEditItems && (
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" variant={adding ? "secondary" : "default"} onClick={() => setAdding(!adding)}>
             {adding ? <X className="size-4" /> : <Plus className="size-4" />}
             {adding ? "Done adding" : "Add movies"}
           </Button>
-          <EditListDialog
-            listId={listId}
-            defaultTitle={listTitle}
-            defaultDescription={listDescription}
-            defaultRanked={isRanked}
-          />
+          {canManage && (
+            <EditListDialog
+              listId={listId}
+              defaultTitle={listTitle}
+              defaultDescription={listDescription}
+              defaultRanked={isRanked}
+              defaultVisibility={visibility}
+            />
+          )}
         </div>
       )}
 
-      {editable && adding && (
+      {canEditItems && adding && (
         <div className="rounded-lg border p-4">
           <MovieSearchGrid onSelect={handleAdd} disabledIds={new Set(items.map((i) => i.tmdbId))} />
         </div>
@@ -114,7 +123,7 @@ export function ListEditor({
 
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {editable ? "Nothing here yet — add your first movie." : "This list is empty."}
+          {canEditItems ? "Nothing here yet — add your first movie." : "This list is empty."}
         </p>
       ) : (
         <div className={pending ? "pointer-events-none space-y-2 opacity-60" : "space-y-2"}>
@@ -148,7 +157,7 @@ export function ListEditor({
                 <p className="text-xs text-muted-foreground">{item.year ?? ""}</p>
               </div>
               {item.myScore != null && <StarRatingDisplay value={item.myScore} className="shrink-0" />}
-              {editable && (
+              {canEditItems && (
                 <div className="flex shrink-0 items-center">
                   <Button
                     type="button"
@@ -194,23 +203,26 @@ function EditListDialog({
   defaultTitle,
   defaultDescription,
   defaultRanked,
+  defaultVisibility,
 }: {
   listId: string;
   defaultTitle: string;
   defaultDescription: string;
   defaultRanked: boolean;
+  defaultVisibility: ListVisibility;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
   const [isRanked, setIsRanked] = useState(defaultRanked);
+  const [visibility, setVisibility] = useState<ListVisibility>(defaultVisibility);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   function handleSave() {
     startTransition(async () => {
-      const result = await updateList(listId, { title, description, isRanked });
+      const result = await updateList(listId, { title, description, isRanked, visibility });
       if ("error" in result) toast.error(result.error);
       else {
         setOpen(false);
@@ -270,6 +282,14 @@ function EditListDialog({
           <div className="flex items-center gap-2">
             <Switch id={`edit-ranked-${listId}`} checked={isRanked} onCheckedChange={setIsRanked} />
             <Label htmlFor={`edit-ranked-${listId}`}>Ranked list</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-vis-${listId}`}>Who can see it</Label>
+            <VisibilitySelect
+              id={`edit-vis-${listId}`}
+              value={visibility}
+              onChange={setVisibility}
+            />
           </div>
         </div>
         <DialogFooter className="gap-2 sm:justify-between">

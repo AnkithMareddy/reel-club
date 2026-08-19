@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { VisibilitySelect } from "@/components/visibility-select";
+import type { ListVisibility } from "@/lib/list-visibility";
 import {
   Dialog,
   DialogContent,
@@ -25,12 +27,13 @@ export function CreateListDialog() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isRanked, setIsRanked] = useState(false);
+  const [visibility, setVisibility] = useState<ListVisibility>("PRIVATE");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
   function handleCreate() {
     startTransition(async () => {
-      const result = await createList({ title, description, isRanked });
+      const result = await createList({ title, description, isRanked, visibility });
       if ("error" in result) {
         toast.error(result.error);
       } else {
@@ -38,6 +41,7 @@ export function CreateListDialog() {
         setTitle("");
         setDescription("");
         setIsRanked(false);
+        setVisibility("PRIVATE");
         if (result.listId) router.push(`/lists/${result.listId}`);
         else router.refresh();
       }
@@ -83,6 +87,10 @@ export function CreateListDialog() {
           <div className="flex items-center gap-2">
             <Switch id="list-ranked" checked={isRanked} onCheckedChange={setIsRanked} />
             <Label htmlFor="list-ranked">Ranked list (numbered order)</Label>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="list-visibility">Who can see it</Label>
+            <VisibilitySelect id="list-visibility" value={visibility} onChange={setVisibility} />
           </div>
         </div>
         <DialogFooter>

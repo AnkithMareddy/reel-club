@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getUserStats } from "@/lib/stats";
+import { visibleListsWhere } from "@/lib/list-access";
 import { tmdbPosterUrl } from "@/lib/tmdb";
 import { BarChart } from "@/components/bar-chart";
 import { StarRatingDisplay } from "@/components/star-rating";
@@ -62,12 +63,18 @@ export default async function ProfilePage({
     orderBy: { joinedAt: "desc" },
   });
 
-  const lists = await prisma.movieList.findMany({
-    where: { ownerId: user.id },
-    include: { _count: { select: { items: true } } },
-    orderBy: { updatedAt: "desc" },
-    take: 6,
-  });
+  // Only lists this viewer is allowed to see (their own, public, or
+  // friends-only when they're an accepted friend).
+  const lists = session?.user
+    ? await prisma.movieList.findMany({
+        where: {
+          AND: [{ ownerId: user.id }, await visibleListsWhere(session.user.id)],
+        },
+        include: { _count: { select: { items: true } } },
+        orderBy: { updatedAt: "desc" },
+        take: 6,
+      })
+    : [];
 
   const canViewHistory = isSelf || friendship?.status === "ACCEPTED";
   const recentRatings = canViewHistory

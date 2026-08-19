@@ -43,6 +43,7 @@ model User {
   activityItems     ActivityFeedItem[]
   personalWatchLogs WatchedMovie[]     @relation("PersonalWatchLog")
   movieLists        MovieList[]        @relation("ListOwner")
+  listCollabs       MovieListCollaborator[] @relation("ListCollaborator")
 
   @@index([email])
 }
@@ -214,19 +215,45 @@ model Movie {
 // Lists (Letterboxd-style: ordered when isRanked, curated otherwise)
 // ─────────────────────────────────────────────────────────────────────────
 
+// PRIVATE: owner + invited collaborators only.
+// FRIENDS: also visible to the owner's accepted friends.
+// PUBLIC: visible to any signed-in member.
+enum ListVisibility {
+  PRIVATE
+  FRIENDS
+  PUBLIC
+}
+
 model MovieList {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   ownerId     String
   title       String
   description String?
-  isRanked    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isRanked    Boolean        @default(false)
+  visibility  ListVisibility @default(PRIVATE)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  owner User            @relation("ListOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  items MovieListItem[]
+  owner         User                    @relation("ListOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  items         MovieListItem[]
+  collaborators MovieListCollaborator[]
 
   @@index([ownerId])
+}
+
+// An invited friend who can add/remove/reorder items but not change the
+// list's settings or delete it.
+model MovieListCollaborator {
+  id        String   @id @default(cuid())
+  listId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  list MovieList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user User      @relation("ListCollaborator", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, userId])
+  @@index([userId])
 }
 
 model MovieListItem {
