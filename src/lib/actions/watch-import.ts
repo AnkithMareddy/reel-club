@@ -124,6 +124,26 @@ export async function importPersonalWatchHistory(
   return { imported, skipped };
 }
 
+/**
+ * Deletes every Letterboxd-imported entry the caller owns (watch events plus
+ * their ratings/reviews via cascade), so a botched double-import of diary.csv
+ * and ratings.csv can be wiped and redone cleanly. Club ratings and manually
+ * logged diary entries are untouched.
+ */
+export async function clearLetterboxdImports(): Promise<{ deleted: number }> {
+  const user = await requireUser();
+
+  const { count } = await prisma.watchedMovie.deleteMany({
+    where: { loggedById: user.id, source: "LETTERBOXD_IMPORT" },
+  });
+
+  if (user.username) {
+    revalidatePath(`/profile/${user.username}`);
+    revalidatePath(`/profile/${user.username}/films`);
+  }
+  return { deleted: count };
+}
+
 export type BackfillEntryInput = {
   tmdbId: number;
   watchedAt: string; // yyyy-mm-dd

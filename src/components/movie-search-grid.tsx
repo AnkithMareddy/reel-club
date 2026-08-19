@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -116,6 +116,12 @@ export function MovieSearchGrid({
                       <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">
                         {movie.title}
                       </div>
+                    )}
+                    {movie.my_score != null && (
+                      <span className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[10px] font-semibold backdrop-blur">
+                        <Star className="size-2.5 fill-primary text-primary" />
+                        {(movie.my_score / 2).toFixed(1)}
+                      </span>
                     )}
                   </div>
                   <p className="line-clamp-1 text-sm font-medium leading-tight">{movie.title}</p>

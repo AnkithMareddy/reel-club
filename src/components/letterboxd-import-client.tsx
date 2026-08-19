@@ -4,11 +4,11 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Upload, CheckCircle2, CircleAlert } from "lucide-react";
+import { Upload, CheckCircle2, CircleAlert, Trash2 } from "lucide-react";
 import { parseLetterboxdCsv, type LetterboxdRow } from "@/lib/letterboxd";
 import { starsToScore } from "@/lib/rating-scale";
 import { matchMovieTitle, mapWithConcurrency } from "@/lib/match-movie";
-import { importPersonalWatchHistory } from "@/lib/actions/watch-import";
+import { importPersonalWatchHistory, clearLetterboxdImports } from "@/lib/actions/watch-import";
 import { MovieMatchPicker } from "@/components/movie-match-picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,8 +33,30 @@ export function LetterboxdImportClient() {
   const [matchProgress, setMatchProgress] = useState({ done: 0, total: 0 });
   const [importProgress, setImportProgress] = useState({ done: 0, total: 0 });
   const [summary, setSummary] = useState<{ imported: number; skipped: number } | null>(null);
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  async function handleClearImports() {
+    if (!confirmingClear) {
+      setConfirmingClear(true);
+      return;
+    }
+    setClearing(true);
+    try {
+      const { deleted } = await clearLetterboxdImports();
+      toast.success(
+        deleted === 0
+          ? "No Letterboxd-imported entries to delete"
+          : `Deleted ${deleted} imported entr${deleted === 1 ? "y" : "ies"} — ready for a fresh upload`,
+      );
+      setConfirmingClear(false);
+      router.refresh();
+    } finally {
+      setClearing(false);
+    }
+  }
 
   async function handleFile(file: File) {
     const text = await file.text();
@@ -112,29 +134,55 @@ export function LetterboxdImportClient() {
 
   if (stage === "upload") {
     return (
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <p className="text-sm text-muted-foreground">
-            From Letterboxd, go to Settings → Import & Export → Export Your Data, then upload{" "}
-            <code className="rounded bg-muted px-1 py-0.5">diary.csv</code> or{" "}
-            <code className="rounded bg-muted px-1 py-0.5">ratings.csv</code> from the zip below.
-          </p>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleFile(file);
-            }}
-          />
-          <Button onClick={() => fileInputRef.current?.click()}>
-            <Upload className="size-4" />
-            Choose CSV file
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card>
+          <CardContent className="space-y-4 pt-6">
+            <p className="text-sm text-muted-foreground">
+              From Letterboxd, go to Settings → Import & Export → Export Your Data, then upload{" "}
+              <code className="rounded bg-muted px-1 py-0.5">diary.csv</code> or{" "}
+              <code className="rounded bg-muted px-1 py-0.5">ratings.csv</code> from the zip below.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+              }}
+            />
+            <Button onClick={() => fileInputRef.current?.click()}>
+              <Upload className="size-4" />
+              Choose CSV file
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="border-destructive/40">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Ended up with duplicates from uploading both diary.csv and ratings.csv? Wipe
+              everything imported from Letterboxd and start over. Club ratings and movies you
+              logged by hand aren&apos;t touched.
+            </p>
+            <Button
+              type="button"
+              variant={confirmingClear ? "destructive" : "outline"}
+              size="sm"
+              disabled={clearing}
+              onClick={handleClearImports}
+            >
+              <Trash2 className="size-3.5" />
+              {clearing
+                ? "Deleting…"
+                : confirmingClear
+                  ? "Confirm — delete all imports"
+                  : "Delete all Letterboxd imports"}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

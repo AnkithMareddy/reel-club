@@ -24,6 +24,8 @@ export type TmdbSearchResult = {
   poster_path: string | null;
   overview: string;
   vote_average: number;
+  /** The signed-in user's own 1–10 score, attached by /api/movies/search. */
+  my_score?: number | null;
 };
 
 export type TmdbSearchResponse = {
