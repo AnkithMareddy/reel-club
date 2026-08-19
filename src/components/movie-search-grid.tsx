@@ -10,19 +10,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { tmdbPosterUrl, type TmdbSearchResult } from "@/lib/tmdb";
 import { cn } from "@/lib/utils";
 
+type PersonResult = {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  known_for_department: string | null;
+  known_for: string[];
+};
+
 export function MovieSearchGrid({
   onSelect,
   disabledIds,
+  showPeople,
 }: {
   /** If provided, clicking a result calls this instead of navigating to the movie page. */
   onSelect?: (movie: TmdbSearchResult) => void;
   /** TMDB ids to render as disabled (e.g. already nominated this cycle). */
   disabledIds?: Set<number>;
+  /** Also search actors/directors and show them above the movie results. */
+  showPeople?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [page, setPage] = useState(1);
   const [results, setResults] = useState<TmdbSearchResult[]>([]);
+  const [people, setPeople] = useState<PersonResult[]>([]);
   const [totalPages, setTotalPages] = useState(0);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
 
@@ -61,6 +73,31 @@ export function MovieSearchGrid({
     };
   }, [debounced, page]);
 
+  useEffect(() => {
+    if (!showPeople) return;
+    let cancelled = false;
+
+    async function run() {
+      if (!debounced) {
+        setPeople([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/people/search?q=${encodeURIComponent(debounced)}`);
+        if (!res.ok) throw new Error("person search failed");
+        const data = await res.json();
+        if (!cancelled) setPeople(data.results ?? []);
+      } catch {
+        if (!cancelled) setPeople([]);
+      }
+    }
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debounced, showPeople]);
+
   return (
     <div className="space-y-4">
       <div className="relative max-w-md">
@@ -68,10 +105,45 @@ export function MovieSearchGrid({
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for a movie…"
+          placeholder={showPeople ? "Search movies, actors, directors…" : "Search for a movie…"}
           className="pl-8"
         />
       </div>
+
+      {showPeople && people.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-medium text-muted-foreground">People</h2>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {people.map((p) => (
+              <Link
+                key={p.id}
+                href={`/people/${p.id}`}
+                className="w-20 shrink-0 space-y-1 text-center"
+              >
+                <div className="relative mx-auto size-20 overflow-hidden rounded-full bg-muted">
+                  {tmdbPosterUrl(p.profile_path, "w185") ? (
+                    <Image
+                      src={tmdbPosterUrl(p.profile_path, "w185")!}
+                      alt={p.name}
+                      fill
+                      sizes="80px"
+                      className="object-cover transition-transform hover:scale-105"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                      {p.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <p className="line-clamp-2 text-xs font-medium leading-tight">{p.name}</p>
+                <p className="line-clamp-1 text-[10px] text-muted-foreground">
+                  {p.known_for_department ?? p.known_for.join(", ")}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {status === "loading" && debounced && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">

@@ -81,8 +81,8 @@ export default async function ClubStatsPage({
               <BarChart
                 rows={stats.distribution
                   .filter((d) => d.count > 0)
-                  .map((d) => ({ label: `${(d.score / 2).toFixed(1)}★`, value: d.count }))}
-                valueFormatter={(v) => `${v}`}
+                  .map((d) => ({ label: `${(d.score / 2).toFixed(1)}★`, value: d.count, movies: d.movies }))}
+                format="integer"
               />
             </CardContent>
           </Card>
@@ -98,8 +98,10 @@ export default async function ClubStatsPage({
                     label: g.name,
                     value: g.count,
                     sublabel: `${g.avg.toFixed(1)} avg`,
+                    movies: g.movies,
                   }))}
-                  valueFormatter={(v) => `${v} watched`}
+                  format="integer"
+                  unit="watched"
                 />
               </CardContent>
             </Card>
@@ -114,6 +116,7 @@ export default async function ClubStatsPage({
                     label: g.name,
                     value: g.avg,
                     sublabel: `${g.count} rated`,
+                    movies: g.movies,
                   }))}
                   max={10}
                 />
@@ -141,6 +144,7 @@ export default async function ClubStatsPage({
                     label: d.name,
                     value: d.avg,
                     sublabel: `${d.count} movie${d.count === 1 ? "" : "s"}`,
+                    movies: d.movies,
                   }))}
                   max={10}
                 />
@@ -157,6 +161,7 @@ export default async function ClubStatsPage({
                     label: b.name,
                     value: b.avg,
                     sublabel: `${b.count} movie${b.count === 1 ? "" : "s"}`,
+                    movies: b.movies,
                   }))}
                   max={10}
                 />

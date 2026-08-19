@@ -1,15 +1,14 @@
+import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getOrCacheMovie } from "@/lib/movies";
+import { getOrCacheMovie, ensureCastIds } from "@/lib/movies";
 import { tmdbBackdropUrl, tmdbPosterUrl } from "@/lib/tmdb";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ReviewCard } from "@/components/review-card";
 import { Star } from "lucide-react";
-
-type CastMember = { name: string; character: string; profilePath: string | null; order: number };
 
 export default async function MovieDetailPage({
   params,
@@ -28,7 +27,7 @@ export default async function MovieDetailPage({
     notFound();
   }
 
-  const cast = (movie.cast as CastMember[] | null) ?? [];
+  const cast = await ensureCastIds(movie);
   const backdrop = tmdbBackdropUrl(movie.backdropPath);
   const poster = tmdbPosterUrl(movie.posterPath, "w500");
   const year = movie.releaseDate ? new Date(movie.releaseDate).getFullYear() : null;
@@ -99,7 +98,15 @@ export default async function MovieDetailPage({
             </h1>
             {movie.directors.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                Directed by {movie.directors.map((d) => d.name).join(", ")}
+                Directed by{" "}
+                {movie.directors.map((d, i) => (
+                  <span key={d.id}>
+                    {i > 0 && ", "}
+                    <Link href={`/people/${d.tmdbId}`} className="hover:underline">
+                      {d.name}
+                    </Link>
+                  </span>
+                ))}
               </p>
             )}
           </div>
@@ -174,19 +181,34 @@ export default async function MovieDetailPage({
         <div className="space-y-3">
           <h2 className="text-lg font-medium">Cast</h2>
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {cast.slice(0, 10).map((c) => (
-              <div key={`${c.name}-${c.order}`} className="w-24 shrink-0 text-center">
-                <Avatar className="mx-auto size-16">
-                  <AvatarImage
-                    src={c.profilePath ? (tmdbPosterUrl(c.profilePath, "w185") ?? undefined) : undefined}
-                    alt={c.name}
-                  />
-                  <AvatarFallback>{c.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
-                <p className="mt-1 line-clamp-1 text-xs font-medium">{c.name}</p>
-                <p className="line-clamp-1 text-xs text-muted-foreground">{c.character}</p>
-              </div>
-            ))}
+            {cast.slice(0, 10).map((c) => {
+              const inner = (
+                <>
+                  <Avatar className="mx-auto size-16 transition-transform group-hover:scale-105">
+                    <AvatarImage
+                      src={c.profilePath ? (tmdbPosterUrl(c.profilePath, "w185") ?? undefined) : undefined}
+                      alt={c.name}
+                    />
+                    <AvatarFallback>{c.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <p className="mt-1 line-clamp-1 text-xs font-medium">{c.name}</p>
+                  <p className="line-clamp-1 text-xs text-muted-foreground">{c.character}</p>
+                </>
+              );
+              return c.id != null ? (
+                <Link
+                  key={`${c.name}-${c.order}`}
+                  href={`/people/${c.id}`}
+                  className="group w-24 shrink-0 text-center"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={`${c.name}-${c.order}`} className="w-24 shrink-0 text-center">
+                  {inner}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

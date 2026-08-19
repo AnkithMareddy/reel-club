@@ -62,6 +62,13 @@ export default async function ProfilePage({
     orderBy: { joinedAt: "desc" },
   });
 
+  const lists = await prisma.movieList.findMany({
+    where: { ownerId: user.id },
+    include: { _count: { select: { items: true } } },
+    orderBy: { updatedAt: "desc" },
+    take: 6,
+  });
+
   const canViewHistory = isSelf || friendship?.status === "ACCEPTED";
   const recentRatings = canViewHistory
     ? await prisma.rating.findMany({
@@ -148,6 +155,32 @@ export default async function ProfilePage({
         </Card>
       )}
 
+      {lists.length > 0 && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base">Lists ({lists.length})</CardTitle>
+            {isSelf && (
+              <Link href="/lists" className="text-sm text-muted-foreground hover:underline">
+                Manage →
+              </Link>
+            )}
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            {lists.map((l) => (
+              <Link
+                key={l.id}
+                href={`/lists/${l.id}`}
+                className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm hover:bg-muted"
+              >
+                {l.title}
+                <span className="text-xs text-muted-foreground">{l._count.items}</span>
+                {l.isRanked && <Badge variant="secondary">Ranked</Badge>}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       {canViewHistory && recentRatings.length > 0 && (
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -209,8 +242,8 @@ export default async function ProfilePage({
                 <BarChart
                   rows={stats.distribution
                     .filter((d) => d.count > 0)
-                    .map((d) => ({ label: `${(d.score / 2).toFixed(1)}★`, value: d.count }))}
-                  valueFormatter={(v) => `${v}`}
+                    .map((d) => ({ label: `${(d.score / 2).toFixed(1)}★`, value: d.count, movies: d.movies }))}
+                  format="integer"
                 />
               </CardContent>
             </Card>
@@ -224,6 +257,7 @@ export default async function ProfilePage({
                     label: d.name,
                     value: d.avg,
                     sublabel: `${d.count} movie${d.count === 1 ? "" : "s"}`,
+                    movies: d.movies,
                   }))}
                   max={10}
                 />
@@ -242,8 +276,10 @@ export default async function ProfilePage({
                     label: g.name,
                     value: g.count,
                     sublabel: `${g.avg.toFixed(1)} avg`,
+                    movies: g.movies,
                   }))}
-                  valueFormatter={(v) => `${v} watched`}
+                  format="integer"
+                  unit="watched"
                 />
               </CardContent>
             </Card>
@@ -257,6 +293,7 @@ export default async function ProfilePage({
                     label: g.name,
                     value: g.avg,
                     sublabel: `${g.count} rated`,
+                    movies: g.movies,
                   }))}
                   max={10}
                 />

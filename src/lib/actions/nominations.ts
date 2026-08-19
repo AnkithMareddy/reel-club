@@ -15,10 +15,16 @@ async function requireUserId() {
 
 export type NominateResult = { error?: string } | { success: true };
 
+/**
+ * Adds a nomination for `onBehalfOfUserId` when given (admin-only), otherwise
+ * for the caller. Either way the per-member nomination cap is enforced against
+ * whoever the nomination is credited to.
+ */
 export async function nominateMovie(
   clubId: string,
   cycleId: string,
   tmdbId: number,
+  onBehalfOfUserId?: string,
 ): Promise<NominateResult> {
   const userId = await requireUserId();
 
@@ -31,11 +37,31 @@ export async function nominateMovie(
   if (!cycle || cycle.clubId !== clubId) return { error: "Cycle not found" };
   if (cycle.phase !== "NOMINATING") return { error: "Nominations are closed for this cycle" };
 
-  const myNominationCount = await prisma.nomination.count({
-    where: { cycleId, nominatedById: userId },
+  let nominatorId = userId;
+  let nominatorName: string | null = null;
+  if (onBehalfOfUserId && onBehalfOfUserId !== userId) {
+    if (membership.role !== "ADMIN") {
+      return { error: "Only the admin can nominate for other members" };
+    }
+    const target = await prisma.clubMembership.findUnique({
+      where: { userId_clubId: { userId: onBehalfOfUserId, clubId } },
+      include: { user: { select: { name: true } } },
+    });
+    if (!target) return { error: "That person isn't in this club" };
+    nominatorId = onBehalfOfUserId;
+    nominatorName = target.user.name;
+  }
+
+  const usedCount = await prisma.nomination.count({
+    where: { cycleId, nominatedById: nominatorId },
   });
-  if (myNominationCount >= club.nominationsPerMember) {
-    return { error: `You've used all ${club.nominationsPerMember} of your nominations` };
+  if (usedCount >= club.nominationsPerMember) {
+    return {
+      error:
+        nominatorId === userId
+          ? `You've used all ${club.nominationsPerMember} of your nominations`
+          : `${nominatorName} has used all ${club.nominationsPerMember} of their nominations`,
+    };
   }
 
   const movie = await getOrCacheMovie(tmdbId);
@@ -46,16 +72,20 @@ export async function nominateMovie(
   if (alreadyNominated) return { error: "Someone already nominated that movie" };
 
   const nomination = await prisma.nomination.create({
-    data: { cycleId, movieId: movie.id, nominatedById: userId },
+    data: { cycleId, movieId: movie.id, nominatedById: nominatorId },
   });
 
   await logActivity({
-    userId,
+    userId: nominatorId,
     type: "NOMINATED_MOVIE",
     clubId,
     movieId: movie.id,
     targetId: nomination.id,
-    metadata: { title: movie.title, posterPath: movie.posterPath },
+    metadata: {
+      title: movie.title,
+      posterPath: movie.posterPath,
+      ...(nominatorId !== userId ? { enteredByAdmin: true } : {}),
+    },
   });
 
   revalidatePath(`/clubs/${clubId}/nominate`);

@@ -74,6 +74,60 @@ export async function getMovieDetails(tmdbId: number): Promise<TmdbMovieDetails>
   return res.json();
 }
 
+export type TmdbPersonSearchResult = {
+  id: number;
+  name: string;
+  profile_path: string | null;
+  known_for_department: string | null;
+  known_for?: { title?: string; name?: string }[];
+};
+
+export async function searchPeople(query: string): Promise<TmdbPersonSearchResult[]> {
+  const url = new URL(`${TMDB_BASE}/search/person`);
+  url.searchParams.set("api_key", apiKey());
+  url.searchParams.set("query", query);
+  url.searchParams.set("include_adult", "false");
+
+  const res = await fetch(url, { next: { revalidate: 3600 } });
+  if (!res.ok) throw new Error(`TMDB person search failed: ${res.status}`);
+  const data: { results: TmdbPersonSearchResult[] } = await res.json();
+  return data.results;
+}
+
+export type TmdbPersonCredit = {
+  id: number;
+  title: string;
+  poster_path: string | null;
+  release_date: string | null;
+  vote_average: number;
+  vote_count: number;
+  character?: string;
+  job?: string;
+};
+
+export type TmdbPersonDetails = {
+  id: number;
+  name: string;
+  biography: string | null;
+  profile_path: string | null;
+  birthday: string | null;
+  known_for_department: string | null;
+  movie_credits: {
+    cast: TmdbPersonCredit[];
+    crew: TmdbPersonCredit[];
+  };
+};
+
+export async function getPersonDetails(personId: number): Promise<TmdbPersonDetails> {
+  const url = new URL(`${TMDB_BASE}/person/${personId}`);
+  url.searchParams.set("api_key", apiKey());
+  url.searchParams.set("append_to_response", "movie_credits");
+
+  const res = await fetch(url, { next: { revalidate: 86400 } });
+  if (!res.ok) throw new Error(`TMDB person details failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getPersonProfilePath(tmdbPersonId: number): Promise<string | null> {
   const url = new URL(`${TMDB_BASE}/person/${tmdbPersonId}`);
   url.searchParams.set("api_key", apiKey());

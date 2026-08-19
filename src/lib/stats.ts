@@ -11,13 +11,27 @@ type RatingForStats = {
     releaseDate: Date | null;
     runtime: number | null;
     genres: { id: string; name: string }[];
-    directors: { id: string; name: string; profilePath: string | null }[];
+    directors: { id: string; name: string; profilePath: string | null; tmdbId: number }[];
   };
 };
 
-export type NamedStat = { id: string; name: string; count: number; avg: number };
+/** A movie inside a chart segment, so any bar can be drilled into. */
+export type SegmentMovie = {
+  tmdbId: number;
+  title: string;
+  posterPath: string | null;
+  score: number; // 1-10
+};
 
-export type DirectorStat = NamedStat & { profilePath: string | null };
+export type NamedStat = {
+  id: string;
+  name: string;
+  count: number;
+  avg: number;
+  movies: SegmentMovie[];
+};
+
+export type DirectorStat = NamedStat & { profilePath: string | null; tmdbId: number };
 
 export type TopMovie = {
   movieId: string;
@@ -31,7 +45,7 @@ export type TopMovie = {
 export type ComputedStats = {
   totalMovies: number;
   avgRating: number; // 1-10 scale
-  distribution: { score: number; count: number }[]; // score 1..10
+  distribution: { score: number; count: number; movies: SegmentMovie[] }[]; // score 1..10
   topMovies: TopMovie[];
   genresByCount: NamedStat[];
   genresByAvg: NamedStat[];
@@ -47,12 +61,15 @@ const RUNTIME_BUCKETS: [string, (min: number) => boolean][] = [
   ["150+ min", (m) => m >= 150],
 ];
 
-function tally(entries: { id: string; name: string; score: number }[]): NamedStat[] {
-  const map = new Map<string, { name: string; count: number; total: number }>();
+type TallyEntry = { id: string; name: string; score: number; movie: SegmentMovie };
+
+function tally(entries: TallyEntry[]): NamedStat[] {
+  const map = new Map<string, { name: string; count: number; total: number; movies: SegmentMovie[] }>();
   for (const e of entries) {
-    const existing = map.get(e.id) ?? { name: e.name, count: 0, total: 0 };
+    const existing = map.get(e.id) ?? { name: e.name, count: 0, total: 0, movies: [] };
     existing.count += 1;
     existing.total += e.score;
+    existing.movies.push(e.movie);
     map.set(e.id, existing);
   }
   return [...map.entries()].map(([id, v]) => ({
@@ -60,6 +77,7 @@ function tally(entries: { id: string; name: string; score: number }[]): NamedSta
     name: v.name,
     count: v.count,
     avg: v.total / v.count,
+    movies: [...v.movies].sort((a, b) => b.score - a.score),
   }));
 }
 
@@ -67,10 +85,19 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
   const totalMovies = ratings.length;
   const avgRating = totalMovies ? ratings.reduce((s, r) => s + r.score, 0) / totalMovies : 0;
 
-  const distribution = Array.from({ length: 10 }, (_, i) => ({
-    score: i + 1,
-    count: ratings.filter((r) => r.score === i + 1).length,
-  }));
+  const distribution = Array.from({ length: 10 }, (_, i) => {
+    const bucket = ratings.filter((r) => r.score === i + 1);
+    return {
+      score: i + 1,
+      count: bucket.length,
+      movies: bucket.map((r) => ({
+        tmdbId: r.movie.tmdbId,
+        title: r.movie.title,
+        posterPath: r.movie.posterPath,
+        score: r.score,
+      })),
+    };
+  });
 
   const movieAgg = new Map<
     string,
@@ -93,20 +120,35 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     }))
     .sort((a, b) => b.avg - a.avg || b.count - a.count);
 
+  const segmentMovie = (r: RatingForStats): SegmentMovie => ({
+    tmdbId: r.movie.tmdbId,
+    title: r.movie.title,
+    posterPath: r.movie.posterPath,
+    score: r.score,
+  });
+
   const genreEntries = ratings.flatMap((r) =>
-    r.movie.genres.map((g) => ({ id: g.id, name: g.name, score: r.score })),
+    r.movie.genres.map((g) => ({ id: g.id, name: g.name, score: r.score, movie: segmentMovie(r) })),
   );
   const genreStats = tally(genreEntries);
 
   const directorEntries = ratings.flatMap((r) =>
-    r.movie.directors.map((d) => ({ id: d.id, name: d.name, score: r.score })),
+    r.movie.directors.map((d) => ({
+      id: d.id,
+      name: d.name,
+      score: r.score,
+      movie: segmentMovie(r),
+    })),
   );
-  const directorPhotoById = new Map(
-    ratings.flatMap((r) => r.movie.directors.map((d) => [d.id, d.profilePath] as const)),
+  const directorMetaById = new Map(
+    ratings.flatMap((r) =>
+      r.movie.directors.map((d) => [d.id, { profilePath: d.profilePath, tmdbId: d.tmdbId }] as const),
+    ),
   );
   const directorStats: DirectorStat[] = tally(directorEntries).map((d) => ({
     ...d,
-    profilePath: directorPhotoById.get(d.id) ?? null,
+    profilePath: directorMetaById.get(d.id)?.profilePath ?? null,
+    tmdbId: directorMetaById.get(d.id)?.tmdbId ?? 0,
   }));
 
   const decadeEntries = ratings
@@ -114,7 +156,7 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     .map((r) => {
       const year = r.movie.releaseDate!.getFullYear();
       const decade = Math.floor(year / 10) * 10;
-      return { id: String(decade), name: `${decade}s`, score: r.score };
+      return { id: String(decade), name: `${decade}s`, score: r.score, movie: segmentMovie(r) };
     });
   const decadeStats = tally(decadeEntries).sort((a, b) => Number(a.id) - Number(b.id));
 
@@ -123,7 +165,7 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     .map((r) => {
       const bucket = RUNTIME_BUCKETS.find(([, test]) => test(r.movie.runtime!));
       const name = bucket?.[0] ?? "Unknown";
-      return { id: name, name, score: r.score };
+      return { id: name, name, score: r.score, movie: segmentMovie(r) };
     });
   const runtimeStats = tally(runtimeEntries).sort(
     (a, b) => RUNTIME_BUCKETS.findIndex((b2) => b2[0] === a.name) - RUNTIME_BUCKETS.findIndex((b2) => b2[0] === b.name),
@@ -153,7 +195,7 @@ const ratingSelect = {
       releaseDate: true,
       runtime: true,
       genres: { select: { id: true, name: true } },
-      directors: { select: { id: true, name: true, profilePath: true } },
+      directors: { select: { id: true, name: true, profilePath: true, tmdbId: true } },
     },
   },
 } as const;

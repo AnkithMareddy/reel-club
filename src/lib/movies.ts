@@ -27,6 +27,7 @@ export async function getOrCacheMovie(tmdbId: number) {
   const cast = details.credits.cast
     .slice(0, 12)
     .map((c) => ({
+      id: c.id,
       name: c.name,
       character: c.character,
       profilePath: c.profile_path,
@@ -86,4 +87,40 @@ export async function ensureDirectorPhotos(directorIds: string[]) {
       }
     }),
   );
+}
+
+export type CastMember = {
+  id?: number;
+  name: string;
+  character: string;
+  profilePath: string | null;
+  order: number;
+};
+
+/**
+ * Movies cached before cast snapshots carried TMDB person ids can't link to
+ * person pages. Refreshes the cast JSON from TMDB once for such movies.
+ */
+export async function ensureCastIds(movie: {
+  id: string;
+  tmdbId: number;
+  cast: unknown;
+}): Promise<CastMember[]> {
+  const cast = (movie.cast as CastMember[] | null) ?? [];
+  if (cast.length === 0 || cast.every((c) => c.id != null)) return cast;
+
+  try {
+    const details = await getMovieDetails(movie.tmdbId);
+    const refreshed = details.credits.cast.slice(0, 12).map((c) => ({
+      id: c.id,
+      name: c.name,
+      character: c.character,
+      profilePath: c.profile_path,
+      order: c.order,
+    }));
+    await prisma.movie.update({ where: { id: movie.id }, data: { cast: refreshed } });
+    return refreshed;
+  } catch {
+    return cast;
+  }
 }

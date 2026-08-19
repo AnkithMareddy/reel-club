@@ -44,6 +44,21 @@ export default async function NominatePage({
   const myCount = nominations.filter((n) => n.nominatedById === userId).length;
   const remaining = Math.max(0, club.nominationsPerMember - myCount);
 
+  const memberships = await prisma.clubMembership.findMany({
+    where: { clubId },
+    include: { user: { select: { id: true, name: true } } },
+    orderBy: { joinedAt: "asc" },
+  });
+  // Caller first so the default selection is themselves.
+  const nominatorOptions = [...memberships]
+    .sort((a, b) => (a.userId === userId ? -1 : b.userId === userId ? 1 : 0))
+    .map((m) => ({
+      userId: m.userId,
+      name: m.user.name ?? "Unnamed",
+      used: nominations.filter((n) => n.nominatedById === m.userId).length,
+      limit: club.nominationsPerMember,
+    }));
+
   return (
     <div className="space-y-8">
       <div>
@@ -62,6 +77,9 @@ export default async function NominatePage({
         cycleId={cycle.id}
         disabledTmdbIds={nominations.map((n) => n.movie.tmdbId)}
         remaining={remaining}
+        isAdmin={membership.role === "ADMIN"}
+        members={nominatorOptions}
+        currentUserId={userId}
       />
 
       <div className="space-y-3">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, Clapperboard, Search, Users } from "lucide-react";
+import { Activity, Clapperboard, ListOrdered, Search, Users } from "lucide-react";
 import { signOut } from "@/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,12 @@ export function NavHeader({
             <Link href="/movies">
               <Search className="size-4" />
               Movies
+            </Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/lists">
+              <ListOrdered className="size-4" />
+              Lists
             </Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>
