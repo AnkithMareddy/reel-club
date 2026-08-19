@@ -8,6 +8,8 @@ import { tmdbPosterUrl } from "@/lib/tmdb";
 import { BarChart } from "@/components/bar-chart";
 import { StarRatingDisplay } from "@/components/star-rating";
 import { LogMovieDialog } from "@/components/log-movie-dialog";
+import { TopMoviesRow } from "@/components/top-movies-row";
+import { DirectorRanking } from "@/components/director-ranking";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,13 +94,19 @@ export default async function ProfilePage({
             {user.bio && <p className="max-w-md text-sm">{user.bio}</p>}
           </div>
         </div>
-        {isSelf && (
+        {isSelf ? (
           <div className="flex shrink-0 gap-2">
             <LogMovieDialog />
             <Button variant="outline" size="sm" asChild>
               <Link href="/import/letterboxd">Import from Letterboxd</Link>
             </Button>
           </div>
+        ) : (
+          friendship?.status === "ACCEPTED" && (
+            <Button variant="outline" size="sm" asChild className="shrink-0">
+              <Link href={`/profile/${user.username}/compare`}>Compare taste</Link>
+            </Button>
+          )
         )}
       </div>
 
@@ -142,8 +150,14 @@ export default async function ProfilePage({
 
       {canViewHistory && recentRatings.length > 0 && (
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base">Rating history</CardTitle>
+            <Link
+              href={`/profile/${user.username}/films`}
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              See all {user._count.ratings} →
+            </Link>
           </CardHeader>
           <CardContent className="space-y-3">
             {recentRatings.map((r) => (
@@ -177,30 +191,41 @@ export default async function ProfilePage({
         </p>
       ) : (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Top movies</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TopMoviesRow movies={stats.topMovies} />
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4 sm:grid-cols-2">
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-muted-foreground">
-                  Average rating given
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-3xl font-semibold">
-                {stats.avgRating.toFixed(1)}
-                <span className="text-base font-normal text-muted-foreground">/10</span>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-normal text-muted-foreground">
-                  Ratings distribution
-                </CardTitle>
+              <CardHeader>
+                <CardTitle className="text-base">Ratings distribution</CardTitle>
               </CardHeader>
               <CardContent>
                 <BarChart
                   rows={stats.distribution
                     .filter((d) => d.count > 0)
-                    .map((d) => ({ label: `${d.score}`, value: d.count }))}
+                    .map((d) => ({ label: `${(d.score / 2).toFixed(1)}★`, value: d.count }))}
                   valueFormatter={(v) => `${v}`}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">By decade</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarChart
+                  rows={stats.decades.map((d) => ({
+                    label: d.name,
+                    value: d.avg,
+                    sublabel: `${d.count} movie${d.count === 1 ? "" : "s"}`,
+                  }))}
+                  max={10}
                 />
               </CardContent>
             </Card>
@@ -244,14 +269,7 @@ export default async function ProfilePage({
               <CardTitle className="text-base">Favorite directors</CardTitle>
             </CardHeader>
             <CardContent>
-              <BarChart
-                rows={stats.directorsByCount.slice(0, 6).map((d) => ({
-                  label: d.name,
-                  value: d.count,
-                  sublabel: `${d.avg.toFixed(1)} avg`,
-                }))}
-                valueFormatter={(v) => `${v} watched`}
-              />
+              <DirectorRanking directors={stats.directorsByCount} />
             </CardContent>
           </Card>
         </div>

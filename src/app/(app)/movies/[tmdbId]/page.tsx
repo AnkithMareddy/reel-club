@@ -44,6 +44,15 @@ export default async function MovieDetailPage({
       })
     : null;
 
+  const myRatings = session?.user
+    ? await prisma.rating.findMany({
+        where: { movieId: movie.id, userId: session.user.id },
+        orderBy: { updatedAt: "desc" },
+        select: { score: true },
+      })
+    : [];
+  const myLatestScore = myRatings[0]?.score ?? null;
+
   const reviews = session?.user
     ? await prisma.review.findMany({
         where: {
@@ -105,6 +114,20 @@ export default async function MovieDetailPage({
           </div>
 
           <div className="flex flex-wrap gap-6 text-sm">
+            {myLatestScore != null && (
+              <div>
+                <p className="text-muted-foreground">Your rating</p>
+                <p className="flex items-center gap-1 font-medium text-primary">
+                  <Star className="size-4 fill-current" />
+                  {(myLatestScore / 2).toFixed(1)}/5
+                  {myRatings.length > 1 && (
+                    <span className="text-xs font-normal text-muted-foreground">
+                      ({myRatings.length} watches)
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-muted-foreground">TMDB rating</p>
               <p className="flex items-center gap-1 font-medium">

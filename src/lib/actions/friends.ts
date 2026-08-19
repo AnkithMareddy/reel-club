@@ -61,6 +61,46 @@ export async function sendFriendRequest(
   return { success: `Friend request sent to ${target.name}` };
 }
 
+/** Sends (or auto-accepts) a friend request straight to a known user id. */
+export async function sendFriendRequestToUser(
+  targetUserId: string,
+): Promise<FriendActionState> {
+  const userId = await requireUserId();
+  const target = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, name: true },
+  });
+  if (!target) return { error: "User not found" };
+  if (target.id === userId) return { error: "That's you!" };
+
+  const existing = await prisma.friendship.findFirst({
+    where: {
+      OR: [
+        { requesterId: userId, addresseeId: target.id },
+        { requesterId: target.id, addresseeId: userId },
+      ],
+    },
+  });
+
+  if (existing) {
+    if (existing.status === "ACCEPTED") return { error: "You're already friends" };
+    if (existing.requesterId === userId) return { error: "Request already sent" };
+    await prisma.friendship.update({
+      where: { id: existing.id },
+      data: { status: "ACCEPTED" },
+    });
+    await recordFriendAdded(userId, target.id);
+    revalidatePath("/friends");
+    return { success: `You and ${target.name} are now friends` };
+  }
+
+  await prisma.friendship.create({
+    data: { requesterId: userId, addresseeId: target.id },
+  });
+  revalidatePath("/friends");
+  return { success: `Friend request sent to ${target.name}` };
+}
+
 export async function respondToFriendRequest(friendshipId: string, accept: boolean) {
   const userId = await requireUserId();
   const friendship = await prisma.friendship.findUnique({ where: { id: friendshipId } });

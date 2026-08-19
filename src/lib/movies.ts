@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getMovieDetails } from "@/lib/tmdb";
+import { getMovieDetails, getPersonProfilePath } from "@/lib/tmdb";
 import { getImdbRating } from "@/lib/omdb";
 
 const movieWithRelations = {
@@ -55,10 +55,35 @@ export async function getOrCacheMovie(tmdbId: number) {
       directors: {
         connectOrCreate: directors.map((d) => ({
           where: { tmdbId: d.id },
-          create: { tmdbId: d.id, name: d.name },
+          create: { tmdbId: d.id, name: d.name, profilePath: d.profile_path },
         })),
       },
     },
     ...movieWithRelations,
   });
+}
+
+/**
+ * One-time lazy photo backfill for directors cached before profilePath
+ * existed. Fetches TMDB person profiles for the given directors that are
+ * missing a photo and stores the result, so subsequent renders are DB-only.
+ */
+export async function ensureDirectorPhotos(directorIds: string[]) {
+  if (directorIds.length === 0) return;
+  const missing = await prisma.director.findMany({
+    where: { id: { in: directorIds }, profilePath: null },
+    select: { id: true, tmdbId: true },
+  });
+  await Promise.all(
+    missing.map(async (d) => {
+      try {
+        const profilePath = await getPersonProfilePath(d.tmdbId);
+        if (profilePath) {
+          await prisma.director.update({ where: { id: d.id }, data: { profilePath } });
+        }
+      } catch {
+        // Photo backfill is best-effort; the initials fallback covers misses.
+      }
+    }),
+  );
 }

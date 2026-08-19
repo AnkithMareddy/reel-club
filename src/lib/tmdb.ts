@@ -58,7 +58,7 @@ export type TmdbMovieDetails = {
   genres: { id: number; name: string }[];
   credits: {
     cast: { id: number; name: string; character: string; profile_path: string | null; order: number }[];
-    crew: { id: number; name: string; job: string; department: string }[];
+    crew: { id: number; name: string; job: string; department: string; profile_path: string | null }[];
   };
 };
 
@@ -70,4 +70,14 @@ export async function getMovieDetails(tmdbId: number): Promise<TmdbMovieDetails>
   const res = await fetch(url, { next: { revalidate: 86400 } });
   if (!res.ok) throw new Error(`TMDB movie details failed: ${res.status}`);
   return res.json();
+}
+
+export async function getPersonProfilePath(tmdbPersonId: number): Promise<string | null> {
+  const url = new URL(`${TMDB_BASE}/person/${tmdbPersonId}`);
+  url.searchParams.set("api_key", apiKey());
+
+  const res = await fetch(url, { next: { revalidate: 86400 } });
+  if (!res.ok) return null;
+  const data: { profile_path: string | null } = await res.json();
+  return data.profile_path;
 }

@@ -4,6 +4,8 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getClubStats } from "@/lib/stats";
 import { BarChart } from "@/components/bar-chart";
+import { TopMoviesRow } from "@/components/top-movies-row";
+import { DirectorRanking } from "@/components/director-ranking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ClubStatsPage({
@@ -64,13 +66,22 @@ export default async function ClubStatsPage({
         <>
           <Card>
             <CardHeader>
+              <CardTitle className="text-base">Top movies</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TopMoviesRow movies={stats.topMovies} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-base">Ratings distribution</CardTitle>
             </CardHeader>
             <CardContent>
               <BarChart
                 rows={stats.distribution
                   .filter((d) => d.count > 0)
-                  .map((d) => ({ label: `${d.score}`, value: d.count }))}
+                  .map((d) => ({ label: `${(d.score / 2).toFixed(1)}★`, value: d.count }))}
                 valueFormatter={(v) => `${v}`}
               />
             </CardContent>
@@ -115,14 +126,7 @@ export default async function ClubStatsPage({
               <CardTitle className="text-base">Most-watched directors</CardTitle>
             </CardHeader>
             <CardContent>
-              <BarChart
-                rows={stats.directorsByCount.slice(0, 6).map((d) => ({
-                  label: d.name,
-                  value: d.count,
-                  sublabel: `${d.avg.toFixed(1)} avg`,
-                }))}
-                valueFormatter={(v) => `${v} watched`}
-              />
+              <DirectorRanking directors={stats.directorsByCount} />
             </CardContent>
           </Card>
 

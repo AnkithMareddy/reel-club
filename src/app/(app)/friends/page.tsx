@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { respondToFriendRequest, cancelOrRemoveFriendship } from "@/lib/actions/friends";
-import { AddFriendForm } from "@/components/add-friend-form";
+import {
+  respondToFriendRequest,
+  cancelOrRemoveFriendship,
+  sendFriendRequestToUser,
+} from "@/lib/actions/friends";
+import { FriendSearch } from "@/components/friend-search";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default async function FriendsPage() {
   const session = await auth();
@@ -31,6 +35,32 @@ export default async function FriendsPage() {
   const other = (f: (typeof friendships)[number]) =>
     f.requesterId === userId ? f.addressee : f.requester;
 
+  // Club-mates who aren't already friends (or pending) make natural suggestions.
+  const connectedIds = new Set(
+    friendships.flatMap((f) => [f.requesterId, f.addresseeId]),
+  );
+  const myClubIds = (
+    await prisma.clubMembership.findMany({ where: { userId }, select: { clubId: true } })
+  ).map((m) => m.clubId);
+  const clubmates = await prisma.clubMembership.findMany({
+    where: {
+      clubId: { in: myClubIds },
+      userId: { not: userId },
+      user: { username: { not: null } },
+    },
+    include: {
+      user: { select: { id: true, name: true, username: true, image: true } },
+      club: { select: { name: true } },
+    },
+  });
+  const suggestions = [
+    ...new Map(
+      clubmates
+        .filter((m) => !connectedIds.has(m.userId))
+        .map((m) => [m.userId, { user: m.user, clubName: m.club.name }]),
+    ).values(),
+  ].slice(0, 6);
+
   return (
     <div className="space-y-8">
       <div>
@@ -40,7 +70,49 @@ export default async function FriendsPage() {
         </p>
       </div>
 
-      <AddFriendForm />
+      <FriendSearch />
+
+      {suggestions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">People in your clubs</CardTitle>
+            <CardDescription>Club-mates you haven&apos;t added yet.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {suggestions.map(({ user, clubName }) => (
+              <div key={user.id} className="flex items-center justify-between gap-3">
+                <Link
+                  href={`/profile/${user.username}`}
+                  className="flex min-w-0 items-center gap-3 hover:underline"
+                >
+                  <Avatar className="size-9">
+                    <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
+                    <AvatarFallback>
+                      {(user.name ?? "?").slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium leading-none">{user.name}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      @{user.username} · {clubName}
+                    </p>
+                  </div>
+                </Link>
+                <form
+                  action={async () => {
+                    "use server";
+                    await sendFriendRequestToUser(user.id);
+                  }}
+                >
+                  <Button type="submit" size="sm" variant="outline">
+                    Add friend
+                  </Button>
+                </form>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {receivedPending.length > 0 && (
         <Card>

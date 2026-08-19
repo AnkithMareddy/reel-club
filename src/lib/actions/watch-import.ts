@@ -60,17 +60,52 @@ export async function importPersonalWatchHistory(
       continue;
     }
 
-    const existing = await prisma.watchedMovie.findFirst({
-      where: {
-        loggedById: user.id,
-        movieId: movie.id,
-        watchedAt,
-        source: "LETTERBOXD_IMPORT",
-      },
+    // Union semantics across diary.csv and ratings.csv: the same movie often
+    // appears in both files with different dates (watch date vs. rating-action
+    // date), so merge into existing imported entries instead of duplicating.
+    const existingEntries = await prisma.watchedMovie.findMany({
+      where: { loggedById: user.id, movieId: movie.id, source: "LETTERBOXD_IMPORT" },
+      include: { ratings: { where: { userId: user.id }, select: { id: true, score: true } } },
+      orderBy: { watchedAt: "desc" },
     });
-    if (existing) {
-      skipped++;
+
+    const sameDate = existingEntries.find(
+      (e) => e.watchedAt.getTime() === watchedAt.getTime(),
+    );
+    if (sameDate) {
+      if (entry.score != null && sameDate.ratings.length === 0) {
+        await prisma.rating.create({
+          data: { userId: user.id, movieId: movie.id, watchedMovieId: sameDate.id, score: entry.score },
+        });
+        imported++;
+      } else {
+        skipped++;
+      }
       continue;
+    }
+
+    if (existingEntries.length > 0) {
+      if (entry.score == null) {
+        // Unrated row for a movie that's already logged — nothing new.
+        skipped++;
+        continue;
+      }
+      if (existingEntries.some((e) => e.ratings.some((r) => r.score === entry.score))) {
+        // Same rating already recorded under a different date (ratings.csv
+        // echoing a diary entry) — not a new watch.
+        skipped++;
+        continue;
+      }
+      const unrated = existingEntries.find((e) => e.ratings.length === 0);
+      if (unrated) {
+        await prisma.rating.create({
+          data: { userId: user.id, movieId: movie.id, watchedMovieId: unrated.id, score: entry.score },
+        });
+        imported++;
+        continue;
+      }
+      // Different date AND different score than every existing entry — treat
+      // as a genuine rewatch and fall through to create it.
     }
 
     const watchedMovie = await prisma.watchedMovie.create({

@@ -173,10 +173,11 @@ model Genre {
 }
 
 model Director {
-  id     String  @id @default(cuid())
-  tmdbId Int     @unique
-  name   String
-  movies Movie[]
+  id          String  @id @default(cuid())
+  tmdbId      Int     @unique
+  name        String
+  profilePath String?
+  movies      Movie[]
 }
 
 model Movie {

@@ -1,24 +1,41 @@
 import { prisma } from "@/lib/prisma";
+import { ensureDirectorPhotos } from "@/lib/movies";
 
 type RatingForStats = {
   score: number;
   movie: {
+    id: string;
+    tmdbId: number;
+    title: string;
+    posterPath: string | null;
     releaseDate: Date | null;
     runtime: number | null;
     genres: { id: string; name: string }[];
-    directors: { id: string; name: string }[];
+    directors: { id: string; name: string; profilePath: string | null }[];
   };
 };
 
 export type NamedStat = { id: string; name: string; count: number; avg: number };
 
+export type DirectorStat = NamedStat & { profilePath: string | null };
+
+export type TopMovie = {
+  movieId: string;
+  tmdbId: number;
+  title: string;
+  posterPath: string | null;
+  avg: number; // 1-10 scale
+  count: number;
+};
+
 export type ComputedStats = {
   totalMovies: number;
   avgRating: number; // 1-10 scale
   distribution: { score: number; count: number }[]; // score 1..10
+  topMovies: TopMovie[];
   genresByCount: NamedStat[];
   genresByAvg: NamedStat[];
-  directorsByCount: NamedStat[];
+  directorsByCount: DirectorStat[];
   decades: NamedStat[]; // name = "1990s"
   runtimeBuckets: NamedStat[]; // name = "Under 90 min" etc.
 };
@@ -55,6 +72,27 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     count: ratings.filter((r) => r.score === i + 1).length,
   }));
 
+  const movieAgg = new Map<
+    string,
+    { movie: RatingForStats["movie"]; total: number; count: number }
+  >();
+  for (const r of ratings) {
+    const existing = movieAgg.get(r.movie.id) ?? { movie: r.movie, total: 0, count: 0 };
+    existing.total += r.score;
+    existing.count += 1;
+    movieAgg.set(r.movie.id, existing);
+  }
+  const topMovies: TopMovie[] = [...movieAgg.values()]
+    .map(({ movie, total, count }) => ({
+      movieId: movie.id,
+      tmdbId: movie.tmdbId,
+      title: movie.title,
+      posterPath: movie.posterPath,
+      avg: total / count,
+      count,
+    }))
+    .sort((a, b) => b.avg - a.avg || b.count - a.count);
+
   const genreEntries = ratings.flatMap((r) =>
     r.movie.genres.map((g) => ({ id: g.id, name: g.name, score: r.score })),
   );
@@ -63,7 +101,13 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
   const directorEntries = ratings.flatMap((r) =>
     r.movie.directors.map((d) => ({ id: d.id, name: d.name, score: r.score })),
   );
-  const directorStats = tally(directorEntries);
+  const directorPhotoById = new Map(
+    ratings.flatMap((r) => r.movie.directors.map((d) => [d.id, d.profilePath] as const)),
+  );
+  const directorStats: DirectorStat[] = tally(directorEntries).map((d) => ({
+    ...d,
+    profilePath: directorPhotoById.get(d.id) ?? null,
+  }));
 
   const decadeEntries = ratings
     .filter((r) => r.movie.releaseDate)
@@ -89,6 +133,7 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     totalMovies,
     avgRating,
     distribution,
+    topMovies,
     genresByCount: [...genreStats].sort((a, b) => b.count - a.count),
     genresByAvg: [...genreStats].filter((g) => g.count >= 2).sort((a, b) => b.avg - a.avg),
     directorsByCount: [...directorStats].sort((a, b) => b.count - a.count),
@@ -101,20 +146,46 @@ const ratingSelect = {
   score: true,
   movie: {
     select: {
+      id: true,
+      tmdbId: true,
+      title: true,
+      posterPath: true,
       releaseDate: true,
       runtime: true,
       genres: { select: { id: true, name: true } },
-      directors: { select: { id: true, name: true } },
+      directors: { select: { id: true, name: true, profilePath: true } },
     },
   },
 } as const;
+
+// Backfills photos for the directors that will actually be displayed, then
+// re-reads them so the stats carry the freshly stored paths.
+async function withDirectorPhotos(stats: ComputedStats): Promise<ComputedStats> {
+  const shown = stats.directorsByCount.slice(0, 8);
+  const missing = shown.filter((d) => !d.profilePath);
+  if (missing.length === 0) return stats;
+
+  await ensureDirectorPhotos(missing.map((d) => d.id));
+  const refreshed = await prisma.director.findMany({
+    where: { id: { in: missing.map((d) => d.id) } },
+    select: { id: true, profilePath: true },
+  });
+  const photoById = new Map(refreshed.map((d) => [d.id, d.profilePath]));
+  return {
+    ...stats,
+    directorsByCount: stats.directorsByCount.map((d) => ({
+      ...d,
+      profilePath: d.profilePath ?? photoById.get(d.id) ?? null,
+    })),
+  };
+}
 
 export async function getUserStats(userId: string, clubId?: string) {
   const ratings = await prisma.rating.findMany({
     where: { userId, ...(clubId ? { clubId } : {}) },
     select: ratingSelect,
   });
-  return computeStats(ratings);
+  return withDirectorPhotos(computeStats(ratings));
 }
 
 export async function getClubStats(clubId: string) {
@@ -122,5 +193,5 @@ export async function getClubStats(clubId: string) {
     where: { clubId },
     select: ratingSelect,
   });
-  return computeStats(ratings);
+  return withDirectorPhotos(computeStats(ratings));
 }
