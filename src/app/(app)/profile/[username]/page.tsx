@@ -7,8 +7,10 @@ import { getUserStats } from "@/lib/stats";
 import { tmdbPosterUrl } from "@/lib/tmdb";
 import { BarChart } from "@/components/bar-chart";
 import { StarRatingDisplay } from "@/components/star-rating";
+import { LogMovieDialog } from "@/components/log-movie-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ProfilePage({
@@ -70,24 +72,34 @@ export default async function ProfilePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-20">
-          <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
-          <AvatarFallback className="text-lg">
-            {(user.name ?? "?").slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{user.name}</h1>
-            {isSelf && <Badge variant="secondary">You</Badge>}
-            {!isSelf && friendship?.status === "ACCEPTED" && (
-              <Badge variant="secondary">Friend</Badge>
-            )}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="size-20">
+            <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
+            <AvatarFallback className="text-lg">
+              {(user.name ?? "?").slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">{user.name}</h1>
+              {isSelf && <Badge variant="secondary">You</Badge>}
+              {!isSelf && friendship?.status === "ACCEPTED" && (
+                <Badge variant="secondary">Friend</Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground">@{user.username}</p>
+            {user.bio && <p className="max-w-md text-sm">{user.bio}</p>}
           </div>
-          <p className="text-muted-foreground">@{user.username}</p>
-          {user.bio && <p className="max-w-md text-sm">{user.bio}</p>}
         </div>
+        {isSelf && (
+          <div className="flex shrink-0 gap-2">
+            <LogMovieDialog />
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/import/letterboxd">Import from Letterboxd</Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-6 text-sm text-muted-foreground">

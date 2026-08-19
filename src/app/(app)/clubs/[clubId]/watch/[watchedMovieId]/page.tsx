@@ -27,7 +27,7 @@ export default async function WatchPage({
     where: { id: watchedMovieId },
     include: { movie: true, club: { select: { id: true, name: true } } },
   });
-  if (!watchedMovie || watchedMovie.clubId !== clubId) notFound();
+  if (!watchedMovie || watchedMovie.clubId !== clubId || !watchedMovie.club) notFound();
 
   const [ratingAgg, reviews, myRating, myReview] = await Promise.all([
     prisma.rating.aggregate({

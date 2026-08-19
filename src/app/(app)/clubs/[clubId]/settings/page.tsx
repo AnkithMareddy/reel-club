@@ -80,6 +80,20 @@ export default async function ClubSettingsPage({
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Historical data</CardTitle>
+          <CardDescription>
+            Add movies and ratings from before the club used Reel Club.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" asChild>
+            <Link href={`/clubs/${clubId}/settings/backfill`}>Import historical data</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">Members ({club.memberships.length})</CardTitle>
           <CardDescription>Remove members or transfer admin.</CardDescription>
         </CardHeader>

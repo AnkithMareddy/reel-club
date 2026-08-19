@@ -32,15 +32,16 @@ model User {
   friendRequestsSent     Friendship[] @relation("FriendRequester")
   friendRequestsReceived Friendship[] @relation("FriendAddressee")
 
-  clubsCreated   Club[]             @relation("ClubCreator")
-  clubMembers    ClubMembership[]
-  nominations    Nomination[]
-  votes          Vote[]
-  ratings        Rating[]
-  reviews        Review[]
-  reviewLikes    ReviewLike[]
-  reviewComments ReviewComment[]
-  activityItems  ActivityFeedItem[]
+  clubsCreated      Club[]             @relation("ClubCreator")
+  clubMembers       ClubMembership[]
+  nominations       Nomination[]
+  votes             Vote[]
+  ratings           Rating[]
+  reviews           Review[]
+  reviewLikes       ReviewLike[]
+  reviewComments    ReviewComment[]
+  activityItems     ActivityFeedItem[]
+  personalWatchLogs WatchedMovie[]     @relation("PersonalWatchLog")
 
   @@index([email])
 }
@@ -275,21 +276,38 @@ model Vote {
   @@index([cycleId, userId])
 }
 
-model WatchedMovie {
-  id        String   @id @default(cuid())
-  clubId    String
-  cycleId   String
-  movieId   String
-  watchedAt DateTime @default(now())
+// How a WatchedMovie entry came to exist. CLUB_CYCLE entries are the shared
+// group watch for a cycle (clubId + cycleId set, loggedById null).
+// PERSONAL_LOG / LETTERBOXD_IMPORT are one user's own diary entry (loggedById
+// set, clubId/cycleId null). ADMIN_BACKFILL is club history entered after the
+// fact (clubId set, cycleId/loggedById null — no formal cycle, but still
+// counts toward that club's stats/leaderboard).
+enum WatchSource {
+  CLUB_CYCLE
+  PERSONAL_LOG
+  LETTERBOXD_IMPORT
+  ADMIN_BACKFILL
+}
 
-  club    Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
-  cycle   Cycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
-  movie   Movie    @relation(fields: [movieId], references: [id])
-  ratings Rating[]
-  reviews Review[]
+model WatchedMovie {
+  id         String      @id @default(cuid())
+  clubId     String?
+  cycleId    String?
+  movieId    String
+  loggedById String?
+  source     WatchSource @default(CLUB_CYCLE)
+  watchedAt  DateTime    @default(now())
+
+  club     Club?    @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  cycle    Cycle?   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  movie    Movie    @relation(fields: [movieId], references: [id])
+  loggedBy User?    @relation("PersonalWatchLog", fields: [loggedById], references: [id], onDelete: Cascade)
+  ratings  Rating[]
+  reviews  Review[]
 
   @@unique([cycleId, movieId])
   @@index([clubId])
+  @@index([loggedById, watchedAt])
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -299,7 +317,7 @@ model WatchedMovie {
 model Rating {
   id             String   @id @default(cuid())
   userId         String
-  clubId         String
+  clubId         String? // null for personal (non-club) log entries
   movieId        String
   watchedMovieId String
   score          Int // 1–10 (rendered as 0.5–5.0 stars)
@@ -307,7 +325,7 @@ model Rating {
   updatedAt      DateTime @updatedAt
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  club         Club         @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  club         Club?        @relation(fields: [clubId], references: [id], onDelete: Cascade)
   movie        Movie        @relation(fields: [movieId], references: [id])
   watchedMovie WatchedMovie @relation(fields: [watchedMovieId], references: [id], onDelete: Cascade)
 
