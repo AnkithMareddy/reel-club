@@ -43,6 +43,51 @@ export function tallyApproval(
   return ranked.map((row, i) => ({ ...row, isWinner: i < winnerCount }));
 }
 
+export type TieOutcome =
+  | { kind: "decided"; winners: string[] }
+  | {
+      kind: "tie";
+      /** Candidates that beat the tie line outright and win immediately. */
+      decided: string[];
+      /** Candidates level on votes, competing for the seats that remain. */
+      tied: string[];
+      remainingSeats: number;
+      votes: number;
+    };
+
+/**
+ * Splits a tally into outright winners and a tie that needs a runoff.
+ *
+ * A tie only matters at the seat boundary: if four movies tie on votes but
+ * there are four seats, everyone wins and nothing needs resolving. It's when
+ * more candidates share the boundary score than there are seats left that the
+ * result can't be settled without another round.
+ */
+export function resolveWinners(tally: ApprovalTallyRow[], seats: number): TieOutcome {
+  const seatCount = Math.min(seats, tally.length);
+  if (seatCount === 0) return { kind: "decided", winners: [] };
+  if (tally.length <= seatCount) {
+    return { kind: "decided", winners: tally.map((r) => r.nominationId) };
+  }
+
+  const boundaryVotes = tally[seatCount - 1].votes;
+  // A candidate just outside the seats sharing the boundary score means the
+  // cut can't be made on votes alone.
+  if (tally[seatCount].votes !== boundaryVotes) {
+    return { kind: "decided", winners: tally.slice(0, seatCount).map((r) => r.nominationId) };
+  }
+
+  const decided = tally.filter((r) => r.votes > boundaryVotes).map((r) => r.nominationId);
+  const tied = tally.filter((r) => r.votes === boundaryVotes).map((r) => r.nominationId);
+  return {
+    kind: "tie",
+    decided,
+    tied,
+    remainingSeats: seatCount - decided.length,
+    votes: boundaryVotes,
+  };
+}
+
 /**
  * Sequential instant-runoff: runs single-winner IRV, removes the winner from
  * the candidate pool, and repeats until `seats` winners are chosen (or

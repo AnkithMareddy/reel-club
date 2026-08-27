@@ -14,6 +14,8 @@ export type BallotMovie = {
   nominationId: string;
   title: string;
   posterPath: string | null;
+  /** Your own nominations can't be voted for. */
+  isOwnNomination: boolean;
 };
 
 /** Approval ballot: tap up to `maxPicks` posters, then submit. */
@@ -37,6 +39,11 @@ export function PickBallot({
   const hasSubmitted = initialPicks.length > 0;
 
   function toggle(nominationId: string) {
+    const movie = movies.find((m) => m.nominationId === nominationId);
+    if (movie?.isOwnNomination) {
+      toast.error("You can't vote for a movie you nominated");
+      return;
+    }
     setPicks((prev) => {
       if (prev.includes(nominationId)) return prev.filter((id) => id !== nominationId);
       if (prev.length >= maxPicks) {
@@ -61,15 +68,25 @@ export function PickBallot({
     });
   }
 
+  const votable = movies.filter((m) => !m.isOwnNomination);
   if (movies.length === 0) {
     return <p className="text-sm text-muted-foreground">No nominations to vote on.</p>;
   }
+  if (votable.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Every movie on this ballot is one you nominated, so there&apos;s nothing for you to vote on
+        this round.
+      </p>
+    );
+  }
+  const effectiveMax = Math.min(maxPicks, votable.length);
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Pick {maxPicks === 1 ? "your favourite" : `up to ${maxPicks}`} — {picks.length}/{maxPicks}{" "}
-        selected.
+        Pick {effectiveMax === 1 ? "your favourite" : `up to ${effectiveMax}`} — {picks.length}/
+        {effectiveMax} selected. You can&apos;t vote for your own nominations.
       </p>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -82,13 +99,17 @@ export function PickBallot({
               key={m.nominationId}
               type="button"
               aria-pressed={selected}
+              disabled={m.isOwnNomination}
+              title={m.isOwnNomination ? "You nominated this" : undefined}
               onClick={() => toggle(m.nominationId)}
-              className="group space-y-1.5 text-left"
+              className="group space-y-1.5 text-left disabled:cursor-not-allowed"
             >
               <div
                 className={cn(
                   "relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted ring-offset-2 ring-offset-background transition-all",
-                  selected ? "ring-2 ring-primary" : "opacity-80 group-hover:opacity-100",
+                  selected && "ring-2 ring-primary",
+                  m.isOwnNomination && "opacity-35 grayscale",
+                  !selected && !m.isOwnNomination && "opacity-80 group-hover:opacity-100",
                 )}
               >
                 {poster ? (
@@ -103,6 +124,11 @@ export function PickBallot({
                   <div className="flex h-full items-center justify-center p-2 text-center text-xs text-muted-foreground">
                     {m.title}
                   </div>
+                )}
+                {m.isOwnNomination && (
+                  <span className="absolute inset-x-0 bottom-0 bg-background/85 py-1 text-center text-[10px] font-medium backdrop-blur">
+                    Your nomination
+                  </span>
                 )}
                 {selected && (
                   <span className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">

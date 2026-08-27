@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { FilmsHistoryClient, type FilmRow } from "@/components/films-history-client";
+import { dedupeRatingsByMovie, countEntriesByMovie } from "@/lib/dedupe-ratings";
 
 export default async function FilmsHistoryPage({
   params,
@@ -50,6 +51,7 @@ export default async function FilmsHistoryPage({
           id: true,
           watchedAt: true,
           loggedById: true,
+          source: true,
           reviews: { where: { userId: user.id }, select: { body: true } },
         },
       },
@@ -57,7 +59,10 @@ export default async function FilmsHistoryPage({
     orderBy: { watchedMovie: { watchedAt: "desc" } },
   });
 
-  const rows: FilmRow[] = ratings.map((r) => ({
+  // One row per movie: a film watched with a club and also imported from
+  // Letterboxd would otherwise appear twice.
+  const entryCounts = countEntriesByMovie(ratings);
+  const rows: FilmRow[] = dedupeRatingsByMovie(ratings).map((r) => ({
     ratingId: r.id,
     watchedMovieId: r.watchedMovie.id,
     tmdbId: r.movie.tmdbId,
@@ -70,6 +75,7 @@ export default async function FilmsHistoryPage({
     body: r.watchedMovie.reviews[0]?.body ?? "",
     watchedAt: r.watchedMovie.watchedAt.toISOString().slice(0, 10),
     isPersonal: r.watchedMovie.loggedById === user.id,
+    entryCount: entryCounts.get(r.movieId) ?? 1,
   }));
 
   return (

@@ -31,6 +31,8 @@ export type FilmRow = {
   body: string;
   watchedAt: string; // yyyy-mm-dd
   isPersonal: boolean;
+  /** Separate log entries for this movie (rewatches / duplicate imports). */
+  entryCount: number;
 };
 
 const ALL = "__all__";
@@ -228,6 +230,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
                   ))}
                   <span className="text-[11px] text-muted-foreground">
                     Watched {r.watchedAt}
+                    {r.entryCount > 1 ? ` · ${r.entryCount} logs` : ""}
                     {r.body ? " · reviewed" : ""}
                   </span>
                 </div>

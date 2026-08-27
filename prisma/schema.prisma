@@ -287,6 +287,8 @@ model Cycle {
   cycleNumber      Int
   phase            CyclePhase @default(NOMINATING)
   winnersPerCycle  Int
+  // 0 = first vote; incremented each time a tie forces another round.
+  runoffRound      Int        @default(0)
   startsAt         DateTime   @default(now())
   nominationsEndAt DateTime?
   votingEndAt      DateTime?
@@ -309,6 +311,9 @@ model Nomination {
   movieId       String
   nominatedById String
   note          String?
+  // Set during a runoff: everything not tied for the remaining seats is
+  // eliminated so the next ballot only offers the tied movies.
+  eliminated    Boolean  @default(false)
   createdAt     DateTime @default(now())
 
   cycle       Cycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
@@ -459,6 +464,7 @@ enum ActivityType {
   REVIEWED_MOVIE
   FRIEND_ADDED
   CYCLE_WINNERS_ANNOUNCED
+  CYCLE_RUNOFF_STARTED
 }
 
 // `metadata` snapshots display-relevant fields (e.g. movie title/poster,

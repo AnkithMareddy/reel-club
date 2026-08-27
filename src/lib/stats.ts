@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { ensureDirectorPhotos, backfillCastIds, type CastMember } from "@/lib/movies";
+import { dedupeRatingsByMovie } from "@/lib/dedupe-ratings";
 
 type RatingForStats = {
   score: number;
@@ -215,6 +216,10 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
 
 const ratingSelect = {
   score: true,
+  userId: true,
+  movieId: true,
+  updatedAt: true,
+  watchedMovie: { select: { source: true, watchedAt: true } },
   movie: {
     select: {
       id: true,
@@ -272,7 +277,7 @@ export async function getUserStats(userId: string, clubId?: string) {
     where: { userId, ...(clubId ? { clubId } : {}) },
     select: ratingSelect,
   });
-  return withDirectorPhotos(computeStats(await withCastIds(ratings)));
+  return withDirectorPhotos(computeStats(await withCastIds(dedupeRatingsByMovie(ratings))));
 }
 
 export async function getClubStats(clubId: string) {
@@ -280,5 +285,5 @@ export async function getClubStats(clubId: string) {
     where: { clubId },
     select: ratingSelect,
   });
-  return withDirectorPhotos(computeStats(await withCastIds(ratings)));
+  return withDirectorPhotos(computeStats(await withCastIds(dedupeRatingsByMovie(ratings))));
 }

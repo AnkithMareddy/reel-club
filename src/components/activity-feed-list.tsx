@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
-import { Star, Flame, MessageSquare, UserPlus, LogIn, Trophy } from "lucide-react";
+import { Star, Flame, MessageSquare, UserPlus, LogIn, Trophy, Scale } from "lucide-react";
 import { tmdbPosterUrl } from "@/lib/tmdb";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { ActivityItem } from "@/lib/activity-feed";
@@ -13,6 +13,7 @@ const ICONS = {
   REVIEWED_MOVIE: MessageSquare,
   FRIEND_ADDED: UserPlus,
   CYCLE_WINNERS_ANNOUNCED: Trophy,
+  CYCLE_RUNOFF_STARTED: Scale,
 };
 
 function describe(item: ActivityItem, showClubName: boolean): { text: React.ReactNode; href: string } {
@@ -89,6 +90,21 @@ function describe(item: ActivityItem, showClubName: boolean): { text: React.Reac
         ),
         href: item.movie ? `/movies/${item.movie.tmdbId}` : "#",
       };
+    case "CYCLE_RUNOFF_STARTED": {
+      const titles = (item.metadata as { tiedTitles?: string[] } | null)?.tiedTitles ?? [];
+      return {
+        text: (
+          <>
+            A tie sent{" "}
+            <strong>
+              {titles.length > 0 ? titles.join(", ") : "the top movies"}
+            </strong>{" "}
+            to another round of voting{clubSuffix}
+          </>
+        ),
+        href: item.club ? `/clubs/${item.club.id}/vote` : "#",
+      };
+    }
     default:
       return { text: null, href: "#" };
   }

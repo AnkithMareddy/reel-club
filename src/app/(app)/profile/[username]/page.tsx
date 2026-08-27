@@ -39,6 +39,15 @@ export default async function ProfilePage({
   if (!user) notFound();
 
   const stats = await getUserStats(user.id);
+  // Distinct movies, not rating rows — the same film can be logged more than
+  // once (club watch plus a Letterboxd import, or a rewatch).
+  const distinctRated = (
+    await prisma.rating.findMany({
+      where: { userId: user.id },
+      distinct: ["movieId"],
+      select: { movieId: true },
+    })
+  ).length;
   const isSelf = session?.user.id === user.id;
   const friendship = isSelf
     ? null
@@ -129,7 +138,7 @@ export default async function ProfilePage({
           <strong className="text-foreground">{user._count.clubMembers}</strong> clubs
         </span>
         <span>
-          <strong className="text-foreground">{user._count.ratings}</strong> movies rated
+          <strong className="text-foreground">{distinctRated}</strong> movies rated
         </span>
         <span>
           <strong className="text-foreground">{user._count.reviews}</strong> reviews
@@ -196,7 +205,7 @@ export default async function ProfilePage({
               href={`/profile/${user.username}/films`}
               className="text-sm text-muted-foreground hover:underline"
             >
-              See all {user._count.ratings} →
+              See all {distinctRated} →
             </Link>
           </CardHeader>
           <CardContent className="space-y-3">

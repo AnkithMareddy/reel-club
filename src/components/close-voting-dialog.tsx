@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { closeVoting } from "@/lib/actions/voting";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ export function CloseVotingDialog({
   winnersPerCycle: number;
 }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   return (
     <AlertDialog>
@@ -53,7 +55,18 @@ export function CloseVotingDialog({
             onClick={() =>
               startTransition(async () => {
                 const result = await closeVoting(clubId, cycleId);
-                if (result?.error) toast.error(result.error);
+                if (result?.error) {
+                  toast.error(result.error);
+                } else if (result?.runoff) {
+                  // A tie can't be settled on votes, so tell the admin what
+                  // happened rather than silently reopening the ballot.
+                  const { titles, votes, remainingSeats } = result.runoff;
+                  toast.warning(
+                    `Tie at ${votes} vote${votes === 1 ? "" : "s"} — ${titles.join(", ")} go to another round for ${remainingSeats} spot${remainingSeats === 1 ? "" : "s"}.`,
+                    { duration: 10000 },
+                  );
+                  router.refresh();
+                }
               })
             }
           >

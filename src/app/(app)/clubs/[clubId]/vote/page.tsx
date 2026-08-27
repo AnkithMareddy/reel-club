@@ -30,7 +30,7 @@ export default async function VotePage({
 
   const [nominations, myVotes, votedUserIds, memberCount] = await Promise.all([
     prisma.nomination.findMany({
-      where: { cycleId: cycle.id },
+      where: { cycleId: cycle.id, eliminated: false },
       include: { movie: { select: { id: true, title: true, posterPath: true } } },
       orderBy: { createdAt: "asc" },
     }),
@@ -52,13 +52,24 @@ export default async function VotePage({
         <Link href={`/clubs/${clubId}`} className="text-sm text-muted-foreground hover:underline">
           ← Back to {club.name}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Vote</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {cycle.runoffRound > 0 ? `Runoff — round ${cycle.runoffRound + 1}` : "Vote"}
+        </h1>
         <p className="text-muted-foreground">
           Cycle {cycle.cycleNumber} · {votedUserIds.length} of {memberCount} member
           {memberCount === 1 ? "" : "s"} have voted so far — individual votes stay anonymous
           until voting closes.
         </p>
       </div>
+
+      {cycle.runoffRound > 0 && (
+        <div className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-sm">
+          <p className="font-medium">Last round ended in a tie.</p>
+          <p className="text-muted-foreground">
+            Only the tied movies are on the ballot now — vote again to break it.
+          </p>
+        </div>
+      )}
 
       <PickBallot
         clubId={clubId}
@@ -67,6 +78,7 @@ export default async function VotePage({
           nominationId: n.id,
           title: n.movie.title,
           posterPath: n.movie.posterPath,
+          isOwnNomination: n.nominatedById === userId,
         }))}
         maxPicks={Math.max(1, cycle.winnersPerCycle)}
         initialPicks={myVotes.map((v) => v.nominationId)}
