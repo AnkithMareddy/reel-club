@@ -33,7 +33,7 @@ function ProviderRow({
           );
           // Prefer the service's own page (opens its app on mobile), and
           // fall back to the JustWatch page for providers we don't map.
-          const href = providerUrl(p.provider_id, title) ?? link;
+          const href = providerUrl(p.provider_name, title) ?? link;
           return href ? (
             <a
               key={p.provider_id}
