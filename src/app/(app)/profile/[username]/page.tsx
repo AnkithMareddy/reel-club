@@ -97,9 +97,9 @@ export default async function ProfilePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-4">
-          <Avatar className="size-20">
+          <Avatar className="size-16 shrink-0 sm:size-20">
             <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
             <AvatarFallback className="text-lg">
               {(user.name ?? "?").slice(0, 2).toUpperCase()}
@@ -107,7 +107,7 @@ export default async function ProfilePage({
           </Avatar>
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">{user.name}</h1>
+              <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{user.name}</h1>
               {isSelf && <Badge variant="secondary">You</Badge>}
               {!isSelf && friendship?.status === "ACCEPTED" && (
                 <Badge variant="secondary">Friend</Badge>
@@ -118,7 +118,7 @@ export default async function ProfilePage({
           </div>
         </div>
         {isSelf ? (
-          <div className="flex shrink-0 gap-2">
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
             <LogMovieDialog />
             <Button variant="outline" size="sm" asChild>
               <Link href="/import/letterboxd">Import from Letterboxd</Link>
@@ -126,14 +126,14 @@ export default async function ProfilePage({
           </div>
         ) : (
           friendship?.status === "ACCEPTED" && (
-            <Button variant="outline" size="sm" asChild className="shrink-0">
+            <Button variant="outline" size="sm" asChild className="w-fit sm:shrink-0">
               <Link href={`/profile/${user.username}/compare`}>Compare taste</Link>
             </Button>
           )
         )}
       </div>
 
-      <div className="flex gap-6 text-sm text-muted-foreground">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
         <span>
           <strong className="text-foreground">{user._count.clubMembers}</strong> clubs
         </span>

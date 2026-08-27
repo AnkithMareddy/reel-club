@@ -58,20 +58,21 @@ export function PersonFilmographyClient({ entries }: { entries: FilmographyEntry
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search their films…"
-            className="w-52 pl-8"
+            className="w-full pl-8 sm:w-52"
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         {departments.length > 1 && (
           <Select value={department} onValueChange={setDepartment}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -86,7 +87,7 @@ export function PersonFilmographyClient({ entries }: { entries: FilmographyEntry
         )}
 
         <Select value={sort} onValueChange={(v) => setSort(v as keyof typeof SORTS)}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -97,6 +98,7 @@ export function PersonFilmographyClient({ entries }: { entries: FilmographyEntry
             ))}
           </SelectContent>
         </Select>
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">

@@ -38,7 +38,7 @@ export default async function CycleResultsPage({
         <Link href={`/clubs/${clubId}`} className="text-sm text-muted-foreground hover:underline">
           ← Back to {club.name}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
           Cycle {results.cycleNumber} results
         </h1>
         <p className="text-muted-foreground">
@@ -96,13 +96,14 @@ export default async function CycleResultsPage({
                     Nominated by {row.nominatedBy.name}
                   </p>
                 </div>
-                <span className="shrink-0 text-sm font-semibold">
-                  {row.votes} vote{row.votes === 1 ? "" : "s"}
+                <span className="shrink-0 text-right text-xs font-semibold sm:text-sm">
+                  {row.votes}
+                  <span className="hidden sm:inline"> vote{row.votes === 1 ? "" : "s"}</span>
                 </span>
               </div>
 
               {row.voters.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 pl-8">
+                <div className="flex flex-wrap items-center gap-1.5 sm:pl-8">
                   <span className="text-xs text-muted-foreground">Voted by</span>
                   {row.voters.map((v) => (
                     <Link

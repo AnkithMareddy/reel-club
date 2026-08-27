@@ -62,7 +62,7 @@ export default async function ComparePage({
               <AvatarFallback>{(them.name ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
             </Avatar>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">You vs. {them.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">You vs. {them.name}</h1>
         </div>
       </div>
 

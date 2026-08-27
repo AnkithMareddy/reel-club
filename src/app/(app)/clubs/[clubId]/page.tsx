@@ -84,18 +84,18 @@ export default async function ClubHomePage({
 
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{club.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{club.name}</h1>
           {club.description && <p className="text-muted-foreground">{club.description}</p>}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" asChild>
             <Link href={`/clubs/${club.id}/leaderboard`}>Leaderboard</Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" size="sm" asChild>
             <Link href={`/clubs/${club.id}/stats`}>Stats</Link>
           </Button>
           {myMembership.role === "ADMIN" && (
-            <Button variant="outline" asChild>
+            <Button variant="outline" size="sm" asChild>
               <Link href={`/clubs/${club.id}/settings`}>Settings</Link>
             </Button>
           )}

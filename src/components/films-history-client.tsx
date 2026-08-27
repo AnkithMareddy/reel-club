@@ -95,19 +95,20 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-2">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search titles…"
-            className="w-48 pl-8"
+            className="w-full pl-8 sm:w-48"
           />
         </div>
 
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <Select value={genre} onValueChange={setGenre}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Genre" />
           </SelectTrigger>
           <SelectContent>
@@ -121,7 +122,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
         </Select>
 
         <Select value={director} onValueChange={setDirector}>
-          <SelectTrigger className="w-[170px]">
+          <SelectTrigger className="w-full sm:w-[170px]">
             <SelectValue placeholder="Director" />
           </SelectTrigger>
           <SelectContent>
@@ -135,7 +136,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
         </Select>
 
         <Select value={decade} onValueChange={setDecade}>
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-full sm:w-[130px]">
             <SelectValue placeholder="Decade" />
           </SelectTrigger>
           <SelectContent>
@@ -149,7 +150,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
         </Select>
 
         <Select value={minStars} onValueChange={setMinStars}>
-          <SelectTrigger className="w-[130px]">
+          <SelectTrigger className="w-full sm:w-[130px]">
             <SelectValue placeholder="Rating" />
           </SelectTrigger>
           <SelectContent>
@@ -163,7 +164,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
         </Select>
 
         <Select value={sort} onValueChange={(v) => setSort(v as keyof typeof SORTS)}>
-          <SelectTrigger className="w-[170px]">
+          <SelectTrigger className="w-full sm:w-[170px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -191,6 +192,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
             Clear
           </Button>
         )}
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -235,7 +237,7 @@ export function FilmsHistoryClient({ rows, editable }: { rows: FilmRow[]; editab
                   </span>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
+              <div className="flex shrink-0 items-center gap-0.5">
                 <StarRatingDisplay value={r.score} />
                 {editable && (
                   <EditRatingDialog

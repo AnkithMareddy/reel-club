@@ -12,55 +12,47 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/** Shared by the desktop top bar and the mobile bottom bar. */
+const NAV_ITEMS = [
+  { href: "/clubs", label: "Clubs", icon: Clapperboard },
+  { href: "/movies", label: "Search", icon: Search },
+  { href: "/lists", label: "Lists", icon: ListOrdered },
+  { href: "/friends", label: "Friends", icon: Users },
+  { href: "/activity", label: "Activity", icon: Activity },
+];
+
 export function NavHeader({
   user,
 }: {
   user: { name: string | null; username: string | null; image: string | null };
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-        <Link href="/clubs" className="flex items-center gap-2 font-semibold">
-          <Clapperboard className="size-5" />
-          Reel Club
-        </Link>
+    <>
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-4">
+          <Link href="/clubs" className="flex shrink-0 items-center gap-2 font-semibold">
+            <Clapperboard className="size-5" />
+            Reel Club
+          </Link>
 
-        <nav className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/clubs">Clubs</Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/movies">
-              <Search className="size-4" />
-              Movies
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/lists">
-              <ListOrdered className="size-4" />
-              Lists
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/friends">
-              <Users className="size-4" />
-              Friends
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/activity">
-              <Activity className="size-4" />
-              Activity
-            </Link>
-          </Button>
+          {/* Five labelled links can't fit a phone, so they move to the
+              bottom bar below and only appear up here when there's room. */}
+          <nav className="hidden items-center gap-1 md:flex">
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+              <Button key={href} variant="ghost" size="sm" asChild>
+                <Link href={href}>
+                  <Icon className="size-4" />
+                  {label}
+                </Link>
+              </Button>
+            ))}
+          </nav>
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="ml-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
-              <Avatar className="size-8">
+            <DropdownMenuTrigger className="shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <Avatar className="size-9 pointer-coarse:size-10">
                 <AvatarImage src={user.image ?? undefined} alt={user.name ?? ""} />
-                <AvatarFallback>
-                  {(user.name ?? "?").slice(0, 2).toUpperCase()}
-                </AvatarFallback>
+                <AvatarFallback>{(user.name ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -86,8 +78,24 @@ export function NavHeader({
               </form>
             </DropdownMenuContent>
           </DropdownMenu>
-        </nav>
-      </div>
-    </header>
+        </div>
+      </header>
+
+      {/* Thumb-reachable tab bar, padded clear of the home indicator. */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[backdrop-filter]:bg-background/80 md:hidden">
+        <div className="mx-auto flex max-w-lg items-stretch justify-around">
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-muted-foreground transition-colors active:text-foreground"
+            >
+              <Icon className="size-5" />
+              <span className="text-[10px] leading-none">{label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }
