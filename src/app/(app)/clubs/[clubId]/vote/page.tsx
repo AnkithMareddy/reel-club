@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { RankedBallot } from "@/components/ranked-ballot";
+import { PickBallot } from "@/components/pick-ballot";
 import { CloseVotingDialog } from "@/components/close-voting-dialog";
 
 export default async function VotePage({
@@ -52,7 +52,7 @@ export default async function VotePage({
         <Link href={`/clubs/${clubId}`} className="text-sm text-muted-foreground hover:underline">
           ← Back to {club.name}
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Rank your picks</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Vote</h1>
         <p className="text-muted-foreground">
           Cycle {cycle.cycleNumber} · {votedUserIds.length} of {memberCount} member
           {memberCount === 1 ? "" : "s"} have voted so far — individual votes stay anonymous
@@ -60,7 +60,7 @@ export default async function VotePage({
         </p>
       </div>
 
-      <RankedBallot
+      <PickBallot
         clubId={clubId}
         cycleId={cycle.id}
         movies={nominations.map((n) => ({
@@ -68,7 +68,8 @@ export default async function VotePage({
           title: n.movie.title,
           posterPath: n.movie.posterPath,
         }))}
-        initialRanking={myVotes.map((v) => v.nominationId)}
+        maxPicks={Math.max(1, cycle.winnersPerCycle)}
+        initialPicks={myVotes.map((v) => v.nominationId)}
       />
 
       {membership.role === "ADMIN" && (

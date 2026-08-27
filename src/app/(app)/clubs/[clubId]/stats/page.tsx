@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getClubStats } from "@/lib/stats";
 import { BarChart } from "@/components/bar-chart";
 import { TopMoviesRow } from "@/components/top-movies-row";
-import { DirectorRanking } from "@/components/director-ranking";
+import { PersonRanking } from "@/components/person-ranking";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function ClubStatsPage({
@@ -129,7 +129,16 @@ export default async function ClubStatsPage({
               <CardTitle className="text-base">Most-watched directors</CardTitle>
             </CardHeader>
             <CardContent>
-              <DirectorRanking directors={stats.directorsByCount} />
+              <PersonRanking people={stats.directorsByCount} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Most-watched actors</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PersonRanking people={stats.actorsByCount} />
             </CardContent>
           </Card>
 

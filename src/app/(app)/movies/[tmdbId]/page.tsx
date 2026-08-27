@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { getOrCacheMovie, ensureCastIds } from "@/lib/movies";
-import { tmdbBackdropUrl, tmdbPosterUrl } from "@/lib/tmdb";
+import { tmdbBackdropUrl, tmdbPosterUrl, getWatchProviders } from "@/lib/tmdb";
+import { WatchProvidersSection } from "@/components/watch-providers";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ReviewCard } from "@/components/review-card";
@@ -27,7 +28,10 @@ export default async function MovieDetailPage({
     notFound();
   }
 
-  const cast = await ensureCastIds(movie);
+  const [cast, watchProviders] = await Promise.all([
+    ensureCastIds(movie),
+    getWatchProviders(id),
+  ]);
   const backdrop = tmdbBackdropUrl(movie.backdropPath);
   const poster = tmdbPosterUrl(movie.posterPath, "w500");
   const year = movie.releaseDate ? new Date(movie.releaseDate).getFullYear() : null;
@@ -175,6 +179,11 @@ export default async function MovieDetailPage({
 
           {movie.synopsis && <p className="text-sm leading-relaxed">{movie.synopsis}</p>}
         </div>
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="text-lg font-medium">Where to watch</h2>
+        <WatchProvidersSection providers={watchProviders} title={movie.title} />
       </div>
 
       {cast.length > 0 && (

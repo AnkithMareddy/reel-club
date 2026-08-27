@@ -21,7 +21,7 @@ const STEPS = [
   {
     icon: ListChecks,
     title: "Vote",
-    body: "Rank your favorites — instant-runoff voting finds the group's real pick.",
+    body: "Everyone picks their favorites and the most-backed movies win the cycle.",
   },
   {
     icon: Sparkles,

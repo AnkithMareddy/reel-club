@@ -74,6 +74,77 @@ export async function getMovieDetails(tmdbId: number): Promise<TmdbMovieDetails>
   return res.json();
 }
 
+export type WatchProvider = {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+};
+
+export type WatchProviders = {
+  /** JustWatch page for this movie — TMDB requires linking out to it. */
+  link: string | null;
+  stream: WatchProvider[];
+  rent: WatchProvider[];
+  buy: WatchProvider[];
+};
+
+/**
+ * Where a movie can be watched in `region` (ISO-3166-1, e.g. "US").
+ * Returns null when TMDB has no availability data for that region.
+ */
+export async function getWatchProviders(
+  tmdbId: number,
+  region = "US",
+): Promise<WatchProviders | null> {
+  const url = new URL(`${TMDB_BASE}/movie/${tmdbId}/watch/providers`);
+  url.searchParams.set("api_key", apiKey());
+
+  const res = await fetch(url, { next: { revalidate: 43200 } });
+  if (!res.ok) return null;
+
+  const data: {
+    results?: Record<
+      string,
+      {
+        link?: string;
+        flatrate?: WatchProvider[];
+        free?: WatchProvider[];
+        ads?: WatchProvider[];
+        rent?: WatchProvider[];
+        buy?: WatchProvider[];
+      }
+    >;
+  } = await res.json();
+
+  const forRegion = data.results?.[region];
+  if (!forRegion) return null;
+
+  // Treat free and ad-supported the same as subscription for display, then
+  // de-dupe in case a provider appears under more than one bucket.
+  const streamRaw = [
+    ...(forRegion.flatrate ?? []),
+    ...(forRegion.free ?? []),
+    ...(forRegion.ads ?? []),
+  ];
+  const seen = new Set<number>();
+  const stream = streamRaw.filter((p) => {
+    if (seen.has(p.provider_id)) return false;
+    seen.add(p.provider_id);
+    return true;
+  });
+
+  const providers: WatchProviders = {
+    link: forRegion.link ?? null,
+    stream,
+    rent: forRegion.rent ?? [],
+    buy: forRegion.buy ?? [],
+  };
+  if (providers.stream.length === 0 && providers.rent.length === 0 && providers.buy.length === 0) {
+    return null;
+  }
+  return providers;
+}
+
 export type TmdbPersonSearchResult = {
   id: number;
   name: string;

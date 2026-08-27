@@ -40,8 +40,8 @@ export function CloseVotingDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Close voting?</AlertDialogTitle>
           <AlertDialogDescription>
-            {votedCount} of {memberCount} member{memberCount === 1 ? "" : "s"} voted. Ranked
-            ballots will be tallied to pick {winnersPerCycle} winner
+            {votedCount} of {memberCount} member{memberCount === 1 ? "" : "s"} voted. The most-picked
+            movies win — {winnersPerCycle} winner
             {winnersPerCycle === 1 ? "" : "s"}, and the cycle moves to Watching. This can&apos;t
             be undone.
           </AlertDialogDescription>

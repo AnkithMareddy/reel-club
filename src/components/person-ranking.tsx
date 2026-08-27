@@ -8,16 +8,19 @@ import { SegmentDialog } from "@/components/bar-chart";
 import { tmdbPosterUrl } from "@/lib/tmdb";
 import type { DirectorStat } from "@/lib/stats";
 
-/** Director leaderboard with headshots; the bar drills into their movies. */
-export function DirectorRanking({
-  directors,
+/**
+ * Person leaderboard with headshots; the bar drills into their movies.
+ * Used for both directors and actors — the stat shape is the same.
+ */
+export function PersonRanking({
+  people,
   limit = 6,
 }: {
-  directors: DirectorStat[];
+  people: DirectorStat[];
   limit?: number;
 }) {
   const [drilldown, setDrilldown] = useState<DirectorStat | null>(null);
-  const shown = directors.slice(0, limit);
+  const shown = people.slice(0, limit);
 
   if (shown.length === 0) {
     return <p className="text-sm text-muted-foreground">Not enough data yet.</p>;

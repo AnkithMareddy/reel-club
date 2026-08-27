@@ -124,3 +124,30 @@ export async function ensureCastIds(movie: {
     return cast;
   }
 }
+
+/**
+ * Backfills TMDB person ids into the cached cast of movies stored before ids
+ * were recorded, returning the refreshed casts by movie id. Capped per call so
+ * a big library converges over a few page loads instead of firing hundreds of
+ * TMDB requests at once.
+ */
+export async function backfillCastIds(
+  movies: { id: string; tmdbId: number; cast: unknown }[],
+  limit = 12,
+): Promise<Map<string, CastMember[]>> {
+  const stale = movies
+    .filter((m) => {
+      const cast = (m.cast as CastMember[] | null) ?? [];
+      return cast.length > 0 && cast.some((c) => c.id == null);
+    })
+    .slice(0, limit);
+
+  const updated = new Map<string, CastMember[]>();
+  await Promise.all(
+    stale.map(async (m) => {
+      const refreshed = await ensureCastIds(m);
+      if (refreshed.some((c) => c.id != null)) updated.set(m.id, refreshed);
+    }),
+  );
+  return updated;
+}

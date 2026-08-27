@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { tallyRankedChoice, type Ballot } from "@/lib/voting";
+import { tallyApproval, type Ballot } from "@/lib/voting";
 import { logActivity } from "@/lib/activity";
 
 async function requireUserId() {
@@ -15,10 +15,15 @@ async function requireUserId() {
 
 export type VoteResult = { error?: string } | { success: true };
 
+/**
+ * Records a member's picks for the cycle. Members choose up to
+ * `winnersPerCycle` movies rather than ranking the whole slate; `rank` is
+ * kept only as the order the picks were made in.
+ */
 export async function submitVote(
   clubId: string,
   cycleId: string,
-  rankings: { nominationId: string; rank: number }[],
+  nominationIds: string[],
 ): Promise<VoteResult> {
   const userId = await requireUserId();
 
@@ -27,33 +32,38 @@ export async function submitVote(
   });
   if (!membership) return { error: "You're not a member of this club" };
 
-  const cycle = await prisma.cycle.findUnique({ where: { id: cycleId } });
-  if (!cycle || cycle.clubId !== clubId) return { error: "Cycle not found" };
+  const [cycle, club] = await Promise.all([
+    prisma.cycle.findUnique({ where: { id: cycleId } }),
+    prisma.club.findUnique({ where: { id: clubId } }),
+  ]);
+  if (!cycle || !club || cycle.clubId !== clubId) return { error: "Cycle not found" };
   if (cycle.phase !== "VOTING") return { error: "Voting is closed for this cycle" };
+
+  const picks = [...new Set(nominationIds)];
+  if (picks.length === 0) return { error: "Pick at least one movie" };
+
+  const maxPicks = Math.max(1, cycle.winnersPerCycle);
+  if (picks.length > maxPicks) {
+    return { error: `You can pick at most ${maxPicks} movie${maxPicks === 1 ? "" : "s"}` };
+  }
 
   const nominations = await prisma.nomination.findMany({
     where: { cycleId },
     select: { id: true },
   });
   const validIds = new Set(nominations.map((n) => n.id));
-  if (rankings.some((r) => !validIds.has(r.nominationId))) {
+  if (picks.some((id) => !validIds.has(id))) {
     return { error: "That nomination isn't part of this cycle" };
-  }
-
-  const ranks = rankings.map((r) => r.rank).sort((a, b) => a - b);
-  const expected = rankings.map((_, i) => i + 1);
-  if (JSON.stringify(ranks) !== JSON.stringify(expected)) {
-    return { error: "Rankings must be a consecutive 1, 2, 3… order with no gaps" };
   }
 
   await prisma.$transaction([
     prisma.vote.deleteMany({ where: { cycleId, userId } }),
     prisma.vote.createMany({
-      data: rankings.map((r) => ({
+      data: picks.map((nominationId, i) => ({
         cycleId,
         userId,
-        nominationId: r.nominationId,
-        rank: r.rank,
+        nominationId,
+        rank: i + 1,
       })),
     }),
   ]);
@@ -93,14 +103,17 @@ export async function closeVoting(
   }
 
   const nominationIds = nominations.map((n) => n.id);
-  const winnerNominationIds = tallyRankedChoice(
+  const tally = tallyApproval(
     nominationIds,
     [...ballotsByUser.values()],
     Math.min(cycle.winnersPerCycle, nominations.length),
     nominationIds,
   );
+  const winnerNominationIds = new Set(
+    tally.filter((row) => row.isWinner).map((row) => row.nominationId),
+  );
 
-  const winningNominations = nominations.filter((n) => winnerNominationIds.includes(n.id));
+  const winningNominations = nominations.filter((n) => winnerNominationIds.has(n.id));
 
   await prisma.$transaction([
     ...winningNominations.map((n) =>

@@ -1,5 +1,48 @@
 export type Ballot = { nominationId: string; rank: number }[];
 
+export type ApprovalTallyRow = {
+  nominationId: string;
+  votes: number;
+  isWinner: boolean;
+};
+
+/**
+ * Approval-style tally: every member picks up to `seats` movies and each pick
+ * counts as one vote. The `seats` highest vote-getters win. Ties are broken
+ * deterministically by `tieBreakOrder` (earlier = favoured), so a tie resolves
+ * toward whichever movie was nominated first.
+ *
+ * Returns every candidate sorted best-to-worst, so the same result powers both
+ * the winner selection and the published results table.
+ */
+export function tallyApproval(
+  candidateIds: string[],
+  ballots: Ballot[],
+  seats: number,
+  tieBreakOrder: string[],
+): ApprovalTallyRow[] {
+  const counts = new Map<string, number>();
+  for (const id of candidateIds) counts.set(id, 0);
+  for (const ballot of ballots) {
+    // Guard against a ballot naming the same movie twice.
+    const unique = new Set(ballot.map((b) => b.nominationId));
+    for (const id of unique) {
+      if (counts.has(id)) counts.set(id, counts.get(id)! + 1);
+    }
+  }
+
+  const ranked = [...counts.entries()]
+    .map(([nominationId, votes]) => ({ nominationId, votes }))
+    .sort(
+      (a, b) =>
+        b.votes - a.votes ||
+        tieBreakOrder.indexOf(a.nominationId) - tieBreakOrder.indexOf(b.nominationId),
+    );
+
+  const winnerCount = Math.min(seats, ranked.length);
+  return ranked.map((row, i) => ({ ...row, isWinner: i < winnerCount }));
+}
+
 /**
  * Sequential instant-runoff: runs single-winner IRV, removes the winner from
  * the candidate pool, and repeats until `seats` winners are chosen (or

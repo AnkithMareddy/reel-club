@@ -109,29 +109,33 @@ export default async function LeaderboardPage({
                 cycle.watchedMovies.map((wm) => {
                   const poster = tmdbPosterUrl(wm.movie.posterPath);
                   return (
-                    <Link
-                      key={wm.id}
-                      href={`/clubs/${clubId}/watch/${wm.id}`}
-                      className="w-24 shrink-0 space-y-1.5"
-                    >
-                      <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted">
-                        {poster ? (
-                          <Image
-                            src={poster}
-                            alt={wm.movie.title}
-                            fill
-                            sizes="96px"
-                            className="object-cover"
-                          />
-                        ) : null}
-                        <Badge className="absolute left-1 top-1" variant="secondary">
-                          Cycle {cycle.cycleNumber}
-                        </Badge>
-                      </div>
-                      <p className="line-clamp-2 text-xs font-medium leading-tight">
-                        {wm.movie.title}
-                      </p>
-                    </Link>
+                    <div key={wm.id} className="w-24 shrink-0 space-y-1.5">
+                      <Link href={`/clubs/${clubId}/watch/${wm.id}`} className="block space-y-1.5">
+                        <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted">
+                          {poster ? (
+                            <Image
+                              src={poster}
+                              alt={wm.movie.title}
+                              fill
+                              sizes="96px"
+                              className="object-cover"
+                            />
+                          ) : null}
+                          <Badge className="absolute left-1 top-1" variant="secondary">
+                            Cycle {cycle.cycleNumber}
+                          </Badge>
+                        </div>
+                        <p className="line-clamp-2 text-xs font-medium leading-tight">
+                          {wm.movie.title}
+                        </p>
+                      </Link>
+                      <Link
+                        href={`/clubs/${clubId}/results/${cycle.id}`}
+                        className="block text-[11px] text-muted-foreground hover:underline"
+                      >
+                        Voting results →
+                      </Link>
+                    </div>
                   );
                 }),
               )}

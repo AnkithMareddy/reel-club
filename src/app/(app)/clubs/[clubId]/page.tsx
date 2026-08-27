@@ -136,7 +136,12 @@ export default async function ClubHomePage({
             )}
             {cycle?.phase === "VOTING" && (
               <Button size="sm" className="mt-2" asChild>
-                <Link href={`/clubs/${club.id}/vote`}>Rank your picks</Link>
+                <Link href={`/clubs/${club.id}/vote`}>Vote</Link>
+              </Button>
+            )}
+            {cycle && (cycle.phase === "WATCHING" || cycle.phase === "COMPLETED") && (
+              <Button size="sm" variant="outline" className="mt-2" asChild>
+                <Link href={`/clubs/${club.id}/results/${cycle.id}`}>See voting results</Link>
               </Button>
             )}
           </CardContent>

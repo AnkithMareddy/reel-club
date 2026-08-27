@@ -10,7 +10,7 @@ import { BarChart } from "@/components/bar-chart";
 import { StarRatingDisplay } from "@/components/star-rating";
 import { LogMovieDialog } from "@/components/log-movie-dialog";
 import { TopMoviesRow } from "@/components/top-movies-row";
-import { DirectorRanking } from "@/components/director-ranking";
+import { PersonRanking } from "@/components/person-ranking";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -313,7 +313,16 @@ export default async function ProfilePage({
               <CardTitle className="text-base">Favorite directors</CardTitle>
             </CardHeader>
             <CardContent>
-              <DirectorRanking directors={stats.directorsByCount} />
+              <PersonRanking people={stats.directorsByCount} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Favorite actors</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <PersonRanking people={stats.actorsByCount} />
             </CardContent>
           </Card>
         </div>

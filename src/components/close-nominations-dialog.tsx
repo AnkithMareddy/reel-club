@@ -37,7 +37,7 @@ export function CloseNominationsDialog({
           <AlertDialogTitle>Close nominations?</AlertDialogTitle>
           <AlertDialogDescription>
             {nominationCount} movie{nominationCount === 1 ? "" : "s"} nominated. Once you close
-            nominations, members will move on to ranking them — no more movies can be added.
+            nominations, members will move on to voting on them — no more movies can be added.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

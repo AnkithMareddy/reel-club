@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { ensureDirectorPhotos } from "@/lib/movies";
+import { ensureDirectorPhotos, backfillCastIds, type CastMember } from "@/lib/movies";
 
 type RatingForStats = {
   score: number;
@@ -10,6 +10,7 @@ type RatingForStats = {
     posterPath: string | null;
     releaseDate: Date | null;
     runtime: number | null;
+    cast: unknown;
     genres: { id: string; name: string }[];
     directors: { id: string; name: string; profilePath: string | null; tmdbId: number }[];
   };
@@ -33,6 +34,9 @@ export type NamedStat = {
 
 export type DirectorStat = NamedStat & { profilePath: string | null; tmdbId: number };
 
+/** Same shape as DirectorStat; `id` is the TMDB person id as a string. */
+export type ActorStat = DirectorStat;
+
 export type TopMovie = {
   movieId: string;
   tmdbId: number;
@@ -50,6 +54,7 @@ export type ComputedStats = {
   genresByCount: NamedStat[];
   genresByAvg: NamedStat[];
   directorsByCount: DirectorStat[];
+  actorsByCount: ActorStat[];
   decades: NamedStat[]; // name = "1990s"
   runtimeBuckets: NamedStat[]; // name = "Under 90 min" etc.
 };
@@ -151,6 +156,29 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     tmdbId: directorMetaById.get(d.id)?.tmdbId ?? 0,
   }));
 
+  const actorEntries = ratings.flatMap((r) => {
+    const cast = ((r.movie.cast as CastMember[] | null) ?? []).filter((c) => c.id != null);
+    // Only the billed leads, so a big ensemble doesn't swamp the ranking.
+    return cast.slice(0, 5).map((c) => ({
+      id: String(c.id),
+      name: c.name,
+      score: r.score,
+      movie: segmentMovie(r),
+    }));
+  });
+  const actorPhotoById = new Map(
+    ratings.flatMap((r) =>
+      ((r.movie.cast as CastMember[] | null) ?? [])
+        .filter((c) => c.id != null)
+        .map((c) => [String(c.id), c.profilePath] as const),
+    ),
+  );
+  const actorStats: ActorStat[] = tally(actorEntries).map((a) => ({
+    ...a,
+    profilePath: actorPhotoById.get(a.id) ?? null,
+    tmdbId: Number(a.id),
+  }));
+
   const decadeEntries = ratings
     .filter((r) => r.movie.releaseDate)
     .map((r) => {
@@ -179,6 +207,7 @@ export function computeStats(ratings: RatingForStats[]): ComputedStats {
     genresByCount: [...genreStats].sort((a, b) => b.count - a.count),
     genresByAvg: [...genreStats].filter((g) => g.count >= 2).sort((a, b) => b.avg - a.avg),
     directorsByCount: [...directorStats].sort((a, b) => b.count - a.count),
+    actorsByCount: [...actorStats].sort((a, b) => b.count - a.count || b.avg - a.avg),
     decades: decadeStats,
     runtimeBuckets: runtimeStats,
   };
@@ -194,6 +223,7 @@ const ratingSelect = {
       posterPath: true,
       releaseDate: true,
       runtime: true,
+      cast: true,
       genres: { select: { id: true, name: true } },
       directors: { select: { id: true, name: true, profilePath: true, tmdbId: true } },
     },
@@ -222,12 +252,27 @@ async function withDirectorPhotos(stats: ComputedStats): Promise<ComputedStats> 
   };
 }
 
+/**
+ * Movies cached before cast person-ids existed would otherwise be invisible to
+ * the actor ranking, so top up a few per load and use the refreshed casts.
+ */
+async function withCastIds<T extends { movie: { id: string; tmdbId: number; cast: unknown } }>(
+  ratings: T[],
+): Promise<T[]> {
+  const uniqueMovies = [...new Map(ratings.map((r) => [r.movie.id, r.movie])).values()];
+  const updated = await backfillCastIds(uniqueMovies);
+  if (updated.size === 0) return ratings;
+  return ratings.map((r) =>
+    updated.has(r.movie.id) ? { ...r, movie: { ...r.movie, cast: updated.get(r.movie.id) } } : r,
+  );
+}
+
 export async function getUserStats(userId: string, clubId?: string) {
   const ratings = await prisma.rating.findMany({
     where: { userId, ...(clubId ? { clubId } : {}) },
     select: ratingSelect,
   });
-  return withDirectorPhotos(computeStats(ratings));
+  return withDirectorPhotos(computeStats(await withCastIds(ratings)));
 }
 
 export async function getClubStats(clubId: string) {
@@ -235,5 +280,5 @@ export async function getClubStats(clubId: string) {
     where: { clubId },
     select: ratingSelect,
   });
-  return withDirectorPhotos(computeStats(ratings));
+  return withDirectorPhotos(computeStats(await withCastIds(ratings)));
 }
