@@ -1,3 +1,23 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   THEME — "Reel Noir"
+   A darkened-cinema palette: the near-black of a theatre once the lights
+   drop, lit by projector gold, with velvet-curtain crimson for warnings.
+
+   Palette
+     Theatre Black   oklch(0.145 0.006 60)  page background
+     Screening Grey  oklch(0.205 0.009 60)  cards and popovers
+     Projector Gold  oklch(0.80 0.155 78)   primary / marquee accent
+     Velvet Crimson  oklch(0.58 0.195 22)   destructive
+     Screen White    oklch(0.96 0.006 70)   foreground
+
+   Typography
+     Headings  Oswald — condensed, film-poster lettering
+     Body      Inter  — quiet and highly legible at small sizes
+
+   Texture
+     Film grain overlay, projector vignette, and sprocket-hole rules.
+   ─────────────────────────────────────────────────────────────────────── */
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -9,7 +29,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-heading);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -84,37 +104,39 @@
 }
 
 .dark {
-  --background: oklch(0.16 0.008 55);
-  --foreground: oklch(0.97 0.005 60);
-  --card: oklch(0.22 0.012 55);
-  --card-foreground: oklch(0.97 0.005 60);
-  --popover: oklch(0.22 0.012 55);
-  --popover-foreground: oklch(0.97 0.005 60);
-  --primary: oklch(0.78 0.16 75);
-  --primary-foreground: oklch(0.18 0.03 60);
-  --secondary: oklch(0.29 0.012 55);
-  --secondary-foreground: oklch(0.97 0.005 60);
-  --muted: oklch(0.27 0.012 55);
-  --muted-foreground: oklch(0.7 0.02 55);
-  --accent: oklch(0.32 0.035 70);
-  --accent-foreground: oklch(0.97 0.01 70);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0.01 60 / 12%);
-  --input: oklch(1 0.01 60 / 15%);
-  --ring: oklch(0.78 0.16 75);
-  --chart-1: oklch(0.78 0.16 75);
-  --chart-2: oklch(0.68 0.15 40);
-  --chart-3: oklch(0.62 0.12 200);
-  --chart-4: oklch(0.7 0.14 320);
-  --chart-5: oklch(0.65 0.13 145);
-  --sidebar: oklch(0.22 0.012 55);
-  --sidebar-foreground: oklch(0.97 0.005 60);
-  --sidebar-primary: oklch(0.78 0.16 75);
-  --sidebar-primary-foreground: oklch(0.18 0.03 60);
-  --sidebar-accent: oklch(0.32 0.035 70);
-  --sidebar-accent-foreground: oklch(0.97 0.01 70);
-  --sidebar-border: oklch(1 0.01 60 / 12%);
-  --sidebar-ring: oklch(0.78 0.16 75);
+  --background: oklch(0.145 0.006 60);
+  --foreground: oklch(0.96 0.006 70);
+  --card: oklch(0.205 0.009 60);
+  --card-foreground: oklch(0.96 0.006 70);
+  --popover: oklch(0.205 0.009 60);
+  --popover-foreground: oklch(0.96 0.006 70);
+  --primary: oklch(0.8 0.155 78);
+  --primary-foreground: oklch(0.16 0.03 60);
+  --secondary: oklch(0.275 0.011 60);
+  --secondary-foreground: oklch(0.96 0.006 70);
+  --muted: oklch(0.25 0.01 60);
+  --muted-foreground: oklch(0.72 0.02 65);
+  --accent: oklch(0.32 0.04 72);
+  --accent-foreground: oklch(0.97 0.012 75);
+  /* Lightened until small destructive text clears AA (4.5:1) on the theatre
+     black, rather than sitting just under it at a richer crimson. */
+  --destructive: oklch(0.645 0.185 22);
+  --border: oklch(1 0.012 70 / 12%);
+  --input: oklch(1 0.012 70 / 15%);
+  --ring: oklch(0.8 0.155 78);
+  --chart-1: oklch(0.8 0.155 78);
+  --chart-2: oklch(0.68 0.16 45);
+  --chart-3: oklch(0.63 0.13 200);
+  --chart-4: oklch(0.7 0.145 330);
+  --chart-5: oklch(0.66 0.135 150);
+  --sidebar: oklch(0.205 0.009 60);
+  --sidebar-foreground: oklch(0.96 0.006 70);
+  --sidebar-primary: oklch(0.8 0.155 78);
+  --sidebar-primary-foreground: oklch(0.16 0.03 60);
+  --sidebar-accent: oklch(0.32 0.04 72);
+  --sidebar-accent-foreground: oklch(0.97 0.012 75);
+  --sidebar-border: oklch(1 0.012 70 / 12%);
+  --sidebar-ring: oklch(0.8 0.155 78);
 }
 
 @layer base {
@@ -123,8 +145,83 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* The full-bleed backdrop is 100vw, which exceeds the content width once a
+       classic (non-overlay) scrollbar is present. `clip` contains that without
+       creating a scroll container, so the sticky header keeps working —
+       `hidden` would break it. */
+    overflow-x: clip;
   }
   html {
     @apply font-sans;
+  }
+  /* Condensed poster lettering for headings, set once so every page picks
+     it up without touching individual components. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading);
+    letter-spacing: 0.01em;
+  }
+}
+
+@layer components {
+  /* Projector grain: a fixed, non-interactive film layer over the whole app.
+     Kept faint so it reads as texture rather than noise, and skipped entirely
+     for anyone who asked for reduced motion-style calm. */
+  .film-grain::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* Light thrown from the projection booth, for hero sections. */
+  .spotlight {
+    background-image:
+      radial-gradient(
+        ellipse 70% 55% at 50% -10%,
+        color-mix(in oklab, var(--primary) 16%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        ellipse 90% 60% at 50% 110%,
+        color-mix(in oklab, var(--primary) 7%, transparent),
+        transparent 70%
+      );
+  }
+
+  /* Perforated film edge, used as a section rule. */
+  .sprockets {
+    height: 0.75rem;
+    background-image: repeating-linear-gradient(
+      to right,
+      color-mix(in oklab, var(--foreground) 15%, transparent) 0 0.5rem,
+      transparent 0.5rem 1.5rem
+    );
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  }
+
+  /* Posters lift toward the light on hover. */
+  .poster-glow {
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease;
+  }
+  .poster-glow:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -12px color-mix(in oklab, var(--primary) 45%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .poster-glow {
+    transition: none;
+  }
+  .poster-glow:hover {
+    transform: none;
   }
 }

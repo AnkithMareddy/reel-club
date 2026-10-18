@@ -82,9 +82,9 @@ export default async function Home() {
         )}
       </header>
 
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
+      <section className="spotlight mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
         <div className="max-w-lg space-y-4">
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="text-4xl font-semibold uppercase tracking-[0.02em] sm:text-6xl">
             Letterboxd meets movie night
           </h1>
           <p className="text-lg text-muted-foreground">
@@ -110,7 +110,9 @@ export default async function Home() {
         )}
       </section>
 
-      <section className="mx-auto w-full max-w-5xl px-6 pb-16">
+      <div className="sprockets mx-auto w-full max-w-5xl px-6" aria-hidden="true" />
+
+      <section className="mx-auto w-full max-w-5xl px-6 pb-16 pt-10">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((step, i) => (
             <Card key={step.title} className="border-border/60">

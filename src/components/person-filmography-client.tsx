@@ -108,7 +108,7 @@ export function PersonFilmographyClient({ entries }: { entries: FilmographyEntry
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {filtered.map((e) => (
           <Link key={`${e.tmdbId}-${e.role}`} href={`/movies/${e.tmdbId}`} className="group space-y-1.5">
-            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted">
+            <div className="poster-glow relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted">
               {tmdbPosterUrl(e.posterPath) ? (
                 <Image
                   src={tmdbPosterUrl(e.posterPath)!}

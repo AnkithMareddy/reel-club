@@ -16,7 +16,7 @@ export function TopMoviesRow({ movies, limit = 8 }: { movies: TopMovie[]; limit?
         const poster = tmdbPosterUrl(m.posterPath, "w185");
         return (
           <Link key={m.movieId} href={`/movies/${m.tmdbId}`} className="w-28 shrink-0 space-y-1.5">
-            <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-muted">
+            <div className="poster-glow relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-muted">
               {poster ? (
                 <Image
                   src={poster}

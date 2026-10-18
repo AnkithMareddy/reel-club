@@ -78,14 +78,17 @@ export default async function MovieDetailPage({
   return (
     <div className="space-y-6">
       {backdrop && (
-        <div className="relative -mx-4 h-56 overflow-hidden bg-muted sm:h-72">
+        // Full-bleed plate: breaks out of the centred column to the viewport
+        // edges, then dissolves into the page so the title sits on darkness.
+        <div className="relative left-1/2 -mt-6 h-60 w-screen -translate-x-1/2 overflow-hidden bg-muted sm:h-80">
           <Image src={backdrop} alt="" fill sizes="100vw" className="object-cover" priority />
-          <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/80" />
         </div>
       )}
 
       <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="relative mx-auto aspect-[2/3] w-48 shrink-0 overflow-hidden rounded-lg bg-muted sm:mx-0">
+        <div className="poster-glow relative mx-auto aspect-[2/3] w-48 shrink-0 overflow-hidden rounded-lg bg-muted ring-1 ring-border sm:mx-0">
           {poster ? (
             <Image src={poster} alt={movie.title} fill sizes="192px" className="object-cover" />
           ) : (

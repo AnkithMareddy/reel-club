@@ -30,7 +30,10 @@ export function NavHeader({
     <>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-4">
-          <Link href="/clubs" className="flex shrink-0 items-center gap-2 font-semibold">
+          <Link
+            href="/clubs"
+            className="flex shrink-0 items-center gap-2 font-heading text-lg font-semibold uppercase tracking-[0.12em]"
+          >
             <Clapperboard className="size-5" />
             Reel Club
           </Link>

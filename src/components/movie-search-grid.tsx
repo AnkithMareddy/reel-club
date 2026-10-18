@@ -175,7 +175,7 @@ export function MovieSearchGrid({
                     disabled ? "pointer-events-none opacity-50" : "cursor-pointer",
                   )}
                 >
-                  <div className="relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted">
+                  <div className="poster-glow relative aspect-[2/3] w-full overflow-hidden rounded-md bg-muted">
                     {poster ? (
                       <Image
                         src={poster}
